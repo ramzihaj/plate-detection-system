@@ -10,21 +10,17 @@ import os
 import logging
 import json
 import asyncio
-
-# Initialisation FastAPI
+from format_tun_plate import format_tunisian_plate_cam_center,format_tunisian_plate_cam_right,format_tunisian_plate_cam_left
 app = FastAPI()
-
-# 📁 Répertoire de templates (frontend)
 app.mount("/templates", StaticFiles(directory="templates"), name="templates")
 
 @app.get("/")
 async def home():
     return FileResponse("templates/index.html")
 
-# 📂 Répertoire contenant les images
-image_dir = r"C:\Users\PCS\Desktop\PFA projet\Backend\static\images"
+image_dir = r"C:\Users\PCS\Desktop\PFA projet\Backend\static\images\center"
 
-# 📦 Chargement du modèle YOLO
+# Chargement du modèle
 try:
     model = YOLO(r"C:\Users\PCS\Desktop\PFA projet\Backend\Model\best002.pt")
     print("✅ Modèle YOLO chargé avec succès.")
@@ -32,21 +28,16 @@ except Exception as e:
     logging.error(f"❌ Erreur de chargement du modèle: {e}")
     raise e
 
-# 🔤 Initialisation EasyOCR
-reader = easyocr.Reader(['en','ar'])
-
-# 📡 WebSocket pour le streaming
+reader = easyocr.Reader(['en'])
 @app.websocket("/ws")
 async def detect_images(websocket: WebSocket):
     await websocket.accept()
     detected_plates = []
 
-    # 📁 Vérification du dossier
     if not os.path.isdir(image_dir):
         await websocket.send_text(json.dumps({"error": "Dossier d'images introuvable"}))
         return
 
-    # 🖼️ Liste des fichiers image
     image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
 
     if not image_files:
@@ -78,32 +69,7 @@ async def detect_images(websocket: WebSocket):
                         print(f"📝 Texte détecté brut: {texts}")
 
                         if texts:
-                            texts = [item for text in texts for item in text.split()]
-                            print(f"📝 Texte après split: {texts}")
-
-                            plate_text = " ".join(texts)
-                            print(f"📝 plate_text: {plate_text}")
-
-                            digits = [x for x in texts if x.isdigit()]
-                            tn_text = [x for x in texts if not x.isdigit()]
-                            print(f"📝 digits: {digits}")
-
-                            if len(digits) == 1:
-                                formatted_plate = f"TN {digits[0]}"
-                            elif len(digits) == 2:
-                                if len(digits[1]) <= len(digits[0]):
-                                    formatted_plate = f"{digits[1]} TN {digits[0]}"
-                                else:
-                                    formatted_plate = f"{digits[0]} TN {digits[1]}"
-                            elif len(digits) == 3:
-                                if len(digits[0]) > len(digits[1]) and len(digits[0]) > len(digits[2]):
-                                    formatted_plate = f"{digits[2]}{digits[1]} TN {digits[0]}"
-                                elif len(digits[1]) > len(digits[0]) and len(digits[1]) > len(digits[2]):
-                                    formatted_plate = f"{digits[2]}{digits[0]} TN {digits[1]}"
-                                elif len(digits[2]) > len(digits[0]) and len(digits[2]) > len(digits[1]):
-                                    formatted_plate = f"{digits[2]}{digits[0]} TN {digits[2]}"
-                            else:
-                                formatted_plate = plate_text
+                            formatted_plate = format_tunisian_plate_cam_center(texts)
 
                             if formatted_plate not in detected_plates:
                                 detected_plates.append(formatted_plate)
@@ -113,7 +79,6 @@ async def detect_images(websocket: WebSocket):
 
                     cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
 
-            # 📸 Encodage image + envoi WebSocket
             _, buffer = cv2.imencode('.jpg', frame)
             image_base64 = base64.b64encode(buffer).decode()
 
