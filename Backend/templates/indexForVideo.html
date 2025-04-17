@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YOLO + OCR Live</title>
+</head>
+<body>
+    <h1>Live Video</h1>
+    <img id="videoFrame" width="640" />
+    <div id="plates"></div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws");
+
+        ws.onmessage = function(event) {
+            const data = JSON.parse(event.data);
+            document.getElementById("videoFrame").src = "data:image/jpeg;base64," + data.image;
+            document.getElementById("plates").innerHTML = "<strong>Plaques:</strong> " + data.plates.join(", ");
+        };
+    </script>
+</body>
+</html>

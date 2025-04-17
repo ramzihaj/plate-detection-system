@@ -10,6 +10,8 @@ import os
 import logging
 import json
 import asyncio
+from datetime import datetime
+
 from format_tun_plate import format_tunisian_plate_cam_center,format_tunisian_plate_cam_right,format_tunisian_plate_cam_left
 app = FastAPI()
 app.mount("/templates", StaticFiles(directory="templates"), name="templates")
@@ -17,6 +19,8 @@ app.mount("/templates", StaticFiles(directory="templates"), name="templates")
 @app.get("/")
 async def home():
     return FileResponse("templates/index.html")
+
+image_dir = r"C:\Users\PCS\Desktop\PFA projet\Backend\static\images\center"
 
 # Chargement du modèle
 try:
@@ -28,36 +32,33 @@ except Exception as e:
 
 reader = easyocr.Reader(['en'])
 @app.websocket("/ws")
-async def detect_video(websocket: WebSocket):
+async def detect_images(websocket: WebSocket):
     await websocket.accept()
     detected_plates = []
 
-    video_path = r"C:\Users\PCS\Desktop\PFA projet\Backend\static\video\test1.mp4"
-
-    if not os.path.exists(video_path):
-        await websocket.send_text(json.dumps({"error": "Vidéo introuvable"}))
+    if not os.path.isdir(image_dir):
+        await websocket.send_text(json.dumps({"error": "Dossier d'images introuvable"}))
         return
 
-    cap = cv2.VideoCapture(video_path)
+    image_files = [f for f in os.listdir(image_dir) if f.lower().endswith(('.jpg', '.jpeg', '.png'))]
 
-    if not cap.isOpened():
-        await websocket.send_text(json.dumps({"error": "Impossible d'ouvrir la vidéo"}))
+    if not image_files:
+        await websocket.send_text(json.dumps({"error": "Aucune image trouvée"}))
         return
 
-    frame_count = 0
+    for image_name in image_files:
+        image_path = os.path.join(image_dir, image_name)
+        frame = cv2.imread(image_path)
 
-    try:
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                print("🎞️ Fin de la vidéo.")
-                break
+        if frame is None:
+            logging.error(f"❌ Erreur lors du chargement de l'image {image_name}.")
+            continue
+        else:
+            print(f"✅ Image {image_name} chargée avec succès.")
 
-            frame_count += 1
-            print(f"🎬 Traitement de la frame {frame_count}")
-
+        try:
             results = model(frame)
-            print(f"🔎 {len(results)} détections trouvées par YOLO à la frame {frame_count}.")
+            print(f"🔎 {len(results)} détections trouvées par YOLO dans {image_name}.")
 
             for result in results:
                 for box in result.boxes.xyxy:
@@ -83,17 +84,24 @@ async def detect_video(websocket: WebSocket):
             _, buffer = cv2.imencode('.jpg', frame)
             image_base64 = base64.b64encode(buffer).decode()
 
+            # data = {
+            #     "filename": image_name,
+            #     "plates": detected_plates,
+            #     "image": image_base64
+            # }
+            now = datetime.now()
+            date_time_str = now.strftime("%Y-%m-%d %H:%M:%S")  # format : 2025-04-15 21:40:12
+
             data = {
-                "frame": frame_count,
+                "filename": image_name,
                 "plates": detected_plates,
+                "plate_count": len(detected_plates),
+                "datetime": date_time_str,
                 "image": image_base64
             }
-
             await websocket.send_text(json.dumps(data))
-            await asyncio.sleep(0.1)  # pour ralentir un peu le flux
+            await asyncio.sleep(1)
 
-    except Exception as e:
-        logging.error(f"❌ Erreur lors du traitement vidéo: {e}")
-        await websocket.send_text(json.dumps({"error": str(e)}))
-    finally:
-        cap.release()
+        except Exception as e:
+            logging.error(f"❌ Erreur lors du traitement de {image_name}: {e}")
+            await websocket.send_text(json.dumps({"error": str(e), "filename": image_name}))

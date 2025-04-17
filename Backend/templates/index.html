@@ -25,11 +25,14 @@
 
             const plateList = data.plates.map(p => `<li>${p}</li>`).join("");
             output.innerHTML += `
-                <h3>${data.filename}</h3>
-                ${img.outerHTML}
-                <ul>${plateList}</ul>
-                <hr/>
-            `;
+    <h3>${data.filename}</h3>
+    <p><strong>Date/Heure :</strong> ${data.datetime}</p>
+    <p><strong>Nombre de plaques détectées :</strong> ${data.plate_count}</p>
+    ${img.outerHTML}
+    <ul><strong>Plaques :</strong> ${plateList}</ul>
+    <hr/>
+`;
+
         };
     </script>
 </body>
