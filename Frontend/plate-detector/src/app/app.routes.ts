@@ -1,6 +1,12 @@
-import { PlateDetectionComponent } from './plate-detection/plate-detection.component';
-import { Routes } from '@angular/router';
+import { NgModule } from '@angular/core';
+import { RouterModule, Routes } from '@angular/router';
 
 export const routes: Routes = [
-  {path: '', component: PlateDetectionComponent }
+
+
 ];
+@NgModule({
+  imports: [RouterModule.forRoot(routes)],
+  exports: [RouterModule]
+})
+export class AppRoutingModule {}

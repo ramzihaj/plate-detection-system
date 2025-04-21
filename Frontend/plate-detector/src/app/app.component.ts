@@ -1,13 +1,11 @@
-import { CommonModule } from '@angular/common';
-import { Component, NgModule } from '@angular/core';
-import { BrowserModule } from '@angular/platform-browser';
-import { RouterOutlet } from '@angular/router';
-import { PlateDetectionComponent } from './plate-detection/plate-detection.component';
+import { Component } from '@angular/core';
+import { NavbarComponent } from './navbar/navbar.component';
+import { RouterModule, RouterOutlet } from '@angular/router';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule,PlateDetectionComponent],
+  imports: [RouterModule,RouterOutlet,NavbarComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
