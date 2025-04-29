@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Détection de Plaques</title>
+</head>
+<body>
+    <h1>Plaques détectées</h1>
+    <div id="output"></div>
+    <script>
+        const socket = new WebSocket("ws://localhost:8000/ws");
+
+        socket.onmessage = function (event) {
+            const data = JSON.parse(event.data);
+            const output = document.getElementById("output");
+
+            if (data.error) {
+                output.innerHTML += `<p style="color:red;">${data.error} (${data.filename ?? ''})</p>`;
+                return;
+            }
+
+            const img = document.createElement("img");
+            img.src = "data:image/jpeg;base64," + data.image;
+            img.width = 400;
+
+            const plateList = data.plates.map(p => `<li>${p}</li>`).join("");
+            output.innerHTML += `
+    <h3>${data.filename}</h3>
+    <p><strong>Date/Heure :</strong> ${data.datetime}</p>
+    <p><strong>Nombre de plaques détectées :</strong> ${data.plate_count}</p>
+    ${img.outerHTML}
+    <ul><strong>Plaques :</strong> ${plateList}</ul>
+    <hr/>
+`;
+
+        };
+    </script>
+</body>
+</html>
