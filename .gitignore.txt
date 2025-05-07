@@ -1,0 +1,13 @@
+# Node.js (backend-auth)
+plate-detection-backend/Auth-backend/node_modules/
+plate-detection-backend/Auth-backend/.env
+
+# Angular (frontend)
+plate-detection/node_modules/
+plate-detection/dist/
+plate-detection/.env
+
+# Logs and system files
+*.log
+.DS_Store
+Thumbs.db
