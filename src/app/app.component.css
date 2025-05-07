@@ -1,0 +1,27 @@
+.w-auto {
+  width: 80px;
+  height: 60px;
+}
+.sm\:block {
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  gap: 248px;
+  margin-left: 183px;
+}
+.items-center {
+  align-items: center;
+  gap: 30px;
+}
+.hover\:bg-gray-700:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(6, 8, 10);
+}
+.bg-gray-800 {
+  --tw-bg-opacity: 1;
+  background-color: rgb(77, 143, 241);
+}
+.hover\:bg-gray-700[_ngcontent-ng-c1301148125]:hover {
+  --tw-bg-opacity: 1;
+  background-color: rgb(5, 5, 5);
+}
