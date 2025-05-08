@@ -1,6 +1,6 @@
 import { Component } from '@angular/core';
 import { Router } from '@angular/router';
-import { AuthService } from '../../auth.service';
+import { AuthService } from '../../services/auth.service';
 import { RouterModule } from '@angular/router'; // Import RouterModule
 import { CommonModule } from '@angular/common'; // Pour *ngIf
 
@@ -12,7 +12,7 @@ import { CommonModule } from '@angular/common'; // Pour *ngIf
   styleUrls: ['./navbar.component.css']
 })
 export class NavbarComponent {
-  constructor(public authService: AuthService, private router: Router) {}
+  constructor(public authService: AuthService, private router: Router) { }
 
   logout() {
     this.authService.logout();
