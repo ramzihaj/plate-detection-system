@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const dotenv = require('dotenv');
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes/user'); // Changé de 'auth' à 'user'
 const contactRoutes = require('./routes/contact');
 const plateRoutes = require('./routes/plate');
 const http = require('http');
@@ -27,6 +27,18 @@ app.use(cors({
   credentials: true
 }));
 app.use(express.json());
+
+// Logger toutes les requêtes
+app.use((req, res, next) => {
+  console.log(`Requête reçue : ${req.method} ${req.url}`);
+  if (req.file || req.body) {
+    console.log('Données reçues :', {
+      file: req.file ? req.file.originalname : 'Aucun fichier',
+      body: req.body
+    });
+  }
+  next();
+});
 
 // Gestion des erreurs globales pour les requêtes mal formées
 app.use((err, req, res, next) => {
@@ -56,21 +68,32 @@ io.on('connection', (socket) => {
 
   socket.on('frame', (frameData) => {
     const options = {
-      args: ['frame'],
-      stdin: frameData
+      mode: 'text',
+      pythonOptions: ['-u'],
+      scriptPath: './scripts',
+      args: ['frame']
     };
 
-    PythonShell.run('scripts/plate_detection.py', options, (err, results) => {
-      if (err) {
-        socket.emit('error', { message: err.message });
-        return;
-      }
+    const pyshell = new PythonShell('plate_detection.py', options);
 
+    pyshell.send(frameData);
+
+    pyshell.on('message', (message) => {
       try {
-        const result = JSON.parse(results[0]);
+        const result = JSON.parse(message);
         socket.emit('result', result);
       } catch (parseErr) {
-        socket.emit('error', { message: 'Erreur de parsing' });
+        socket.emit('error', { message: 'Erreur de parsing des résultats' });
+      }
+    });
+
+    pyshell.on('error', (err) => {
+      socket.emit('error', { message: err.message });
+    });
+
+    pyshell.end((err) => {
+      if (err) {
+        socket.emit('error', { message: err.message });
       }
     });
   });

@@ -8,15 +8,17 @@ const plateSchema = new mongoose.Schema({
   },
   plates: [{
     text: String,
-    confidence: Number,
-    bbox: [Number]
+    confidence: { type: Number, required: false },
+    bbox: { type: [Number], required: false },
+    detectionDate: String
   }],
   originalFile: {
     type: String,
     required: true
   },
   annotatedFile: {
-    type: String
+    type: String,
+    required: false
   },
   createdAt: {
     type: Date,
