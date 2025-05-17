@@ -1,0 +1,117 @@
+.navbar {
+  padding: 0px;
+  background: linear-gradient(45deg, #42658b, #8ce4ff);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+  transition: background 0.3s ease;
+}
+
+.navbar-brand .logo {
+  height: 40px;
+  width: 80px;
+  transition: transform 0.3s ease;
+}
+
+.navbar-brand .logo:hover {
+  transform: scale(1.1);
+}
+
+.navbar-nav .nav-link {
+  font-size: 16px;
+  font-weight: 600;
+  padding: 10px 20px;
+  color: #fff;
+  border-radius: 8px;
+  transition: background 0.3s ease, transform 0.3s ease;
+}
+
+.navbar-nav .nav-link:hover {
+  background: rgba(255, 255, 255, 0.2);
+  transform: translateY(-2px);
+}
+
+.navbar-nav .nav-link.active {
+  background: rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-weight: bold;
+}
+
+.navbar-nav .nav-link.btn-outline-light {
+  border: 2px solid #fff;
+  color: #fff;
+  padding: 8px 20px;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.navbar-nav .nav-link.btn-outline-light:hover {
+  background: #fff;
+  color: #007bff;
+  transform: translateY(-2px);
+}
+
+.dropdown-menu {
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(10px);
+  border: none;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  min-width: 150px;
+}
+
+.dropdown-item {
+  font-size: 14px;
+  padding: 10px 20px;
+  color: #1a202c;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+
+.dropdown-item:hover {
+  background: linear-gradient(45deg, #007bff, #00c4ff);
+  color: #fff;
+}
+
+.navbar-toggler {
+  border: none;
+  padding: 10px;
+}
+
+.navbar-toggler-icon {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba(255, 255, 255, 0.95)' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .navbar-nav .nav-link {
+    font-size: 15px;
+    padding: 8px 15px;
+  }
+  .dropdown-menu {
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    padding: 10px 0;
+  }
+  .navbar-brand .logo {
+    height: 45px;
+  }
+  .navbar-nav .nav-link {
+    font-size: 14px;
+    padding: 10px;
+    text-align: center;
+  }
+  .navbar-nav .nav-link.btn-outline-light {
+    margin: 10px auto;
+    width: 50%;
+  }
+  .dropdown-menu {
+    text-align: center;
+  }
+}
