@@ -1,0 +1,161 @@
+<div class="home-container">
+  <!-- Hero Carousel -->
+  <div class="hero-carousel animate-section">
+    <owl-carousel-o [options]="customOptions">
+      <ng-template carouselSlide *ngFor="let slide of slides" [id]="slide.id">
+        <div class="slide">
+          <img [src]="slide.image" alt="Slide {{ slide.id }}" class="img-fluid">
+          <div class="carousel-caption">
+            <h3 class="animate-caption">{{ slide.caption }}</h3>
+            <a routerLink="/upload" class="btn btn-primary btn-lg mt-3 animate-button">Commencer maintenant</a>
+          </div>
+        </div>
+      </ng-template>
+    </owl-carousel-o>
+  </div>
+
+  <!-- Description -->
+  <section class="description-section container py-5 animate-section">
+    <div class="row justify-content-center">
+      <div class="col-lg-12">
+        <h2 class="display-4 fw-bold text-primary mb-4">Votre Solution d’IA pour les Plaques Tunisiennes</h2>
+        <p class="lead text-secondary mb-4">
+          Plate Detection est une plateforme révolutionnaire conçue pour détecter et lire les plaques d’immatriculation tunisiennes avec une précision inégalée. Grâce à l’intelligence artificielle avancée de YOLOv8, notre solution transforme la gestion des véhicules, la sécurité et les applications en temps réel.
+        </p>
+        <p class="text-secondary mb-4">
+          Que vous soyez un professionnel de la sécurité, un gestionnaire de parking, ou une entreprise cherchant à automatiser la surveillance, Plate Detection offre une technologie robuste adaptée aux besoins modernes. Notre système reconnaît les plaques tunisiennes dans des conditions variées, y compris faible luminosité ou angles difficiles.
+        </p>
+         <div class="detection-gallery animate-section">
+          <owl-carousel-o [options]="galleryOptions">
+            <ng-template carouselSlide *ngFor="let image of detectionImages" [id]="image.id">
+              <div class="gallery-slide">
+                <img [src]="image.src" [alt]="image.alt" class="detection-img">
+              </div>
+            </ng-template>
+          </owl-carousel-o>
+        </div>
+        <h3 class="fw-bold text-primary mb-3">Pourquoi Plate Detection ?</h3>
+        <ul class="benefits-list text-secondary mb-4">
+          <li><strong>Précision de pointe</strong> : Détection fiable avec un taux de réussite de 97.85%.</li>
+          <li><strong>Polyvalence</strong> : Compatible avec images, vidéos et flux webcam en temps réel.</li>
+          <li><strong>Rapidité</strong> : Traite jusqu’à 5,000 plaques par heure avec une vitesse moyenne de 50 ms par plaque.</li>
+          <li><strong>Facilité d’utilisation</strong> : Interface intuitive pour uploader des fichiers ou utiliser une webcam.</li>
+          <li><strong>Applications multiples</strong> : Sécurité routière, gestion de parkings, contrôle d’accès, et plus.</li>
+        </ul>
+        <div class="d-flex justify-content-start gap-4">
+          <a routerLink="/upload" class="btn btn-primary btn-lg">Uploader un fichier</a>
+          <a routerLink="/webcam" class="btn btn-outline-primary btn-lg">Utiliser la webcam</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statistics -->
+  <section class="statistics-section py-5 text-white text-center">
+    <div class="container">
+      <h2 class="display-5 fw-bold mb-5">Performance en Chiffres</h2>
+      <div class="row g-4">
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <h3 id="successRate" class="stat-number">0</h3>
+            <p class="stat-label">Taux de Réussite</p>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <h3 id="precision" class="stat-number">0</h3>
+            <p class="stat-label">Précision</p>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <h3 id="platesPerHour" class="stat-number">0</h3>
+            <p class="stat-label">Plaques par Heure</p>
+          </div>
+        </div>
+        <div class="col-md-3 col-6">
+          <div class="stat-card">
+            <h3 id="processingSpeed" class="stat-number">0</h3>
+            <p class="stat-label">Vitesse (ms)</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features-section bg-light py-5">
+    <div class="container">
+      <h2 class="text-center display-5 fw-bold text-primary mb-5">Nos atouts</h2>
+      <div class="row g-4">
+        <div class="col-md-4 text-center animate-card">
+          <div class="card glass-card p-4">
+            <i class="bi bi-camera fs-1 text-primary mb-3"></i>
+            <h4 class="fw-bold">Détection précise</h4>
+            <p class="text-muted">Reconnaissance fiable des plaques tunisiennes grâce à YOLOv8.</p>
+          </div>
+        </div>
+        <div class="col-md-4 text-center animate-card">
+          <div class="card glass-card p-4">
+            <i class="bi bi-webcam fs-1 text-primary mb-3"></i>
+            <h4 class="fw-bold">Analyse en temps réel</h4>
+            <p class="text-muted">Détection instantanée des plaques via webcam.</p>
+          </div>
+        </div>
+        <div class="col-md-4 text-center animate-card">
+          <div class="card glass-card p-4">
+            <i class="bi bi-upload fs-1 text-primary mb-3"></i>
+            <h4 class="fw-bold">Upload simplifié</h4>
+            <p class="text-muted">Traitez images et vidéos en quelques clics.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Call to Action -->
+  <section class="cta-section py-5 text-center text-white">
+    <div class="container">
+      <h2 class="display-5 fw-bold mb-4">Prêt à transformer la détection de plaques ?</h2>
+      <p class="lead mb-5">Rejoignez des milliers d’utilisateurs et découvrez la puissance de Plate Detection.</p>
+      <a routerLink="/upload" class="btn btn-primary btn-lg">Essayer maintenant</a>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer py-5 text-white">
+    <div class="container">
+      <div class="row g-4">
+        <div class="col-md-4">
+          <h5 class="fw-bold">Plate Detection</h5>
+          <p class="text-muted">
+            Une solution d’IA de pointe pour la détection des plaques tunisiennes, conçue pour l’avenir.
+          </p>
+        </div>
+        <div class="col-md-4">
+          <h5 class="fw-bold">Liens rapides</h5>
+          <ul class="list-unstyled">
+            <li><a routerLink="/" class="text-white">Accueil</a></li>
+            <li><a routerLink="/upload" class="text-white">Uploader</a></li>
+            <li><a routerLink="/webcam" class="text-white">Webcam</a></li>
+          </ul>
+        </div>
+        <div class="col-md-4">
+          <h5 class="fw-bold">Contactez-nous</h5>
+          <p class="text-muted">
+            Email: <a href="mailto:ramzi.hajmassoud.10@gmail.com" class="text-white">ramzi.hajmassoud.10&#64;gmail.com</a><br>
+            Téléphone: +216 22 528 882
+          </p>
+          <div class="social-icons">
+            <a href="#" class="text-white me-3"><i class="bi bi-facebook fs-4"></i></a>
+            <a href="#" class="text-white me-3"><i class="bi bi-twitter fs-4"></i></a>
+            <a href="#" class="text-white"><i class="bi bi-linkedin fs-4"></i></a>
+          </div>
+        </div>
+      </div>
+      <div class="text-center mt-5">
+        <p class="text-muted">© 2025 Plate Detection. Tous droits réservés.</p>
+      </div>
+    </div>
+  </footer>
+</div>

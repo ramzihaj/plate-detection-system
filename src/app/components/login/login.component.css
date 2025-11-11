@@ -1,0 +1,82 @@
+.container {
+  min-height: 100vh;
+  padding: 30px 15px;
+  position: relative;
+  background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
+}
+
+.container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.3);
+  z-index: 1;
+}
+
+.container > * {
+  position: relative;
+  z-index: 2;
+}
+
+.card {
+  border-radius: 12px;
+  border: none;
+  background: rgba(255, 255, 255, 0.95);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.form-control {
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+
+.form-control:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 8px rgba(0, 123, 255, 0.3);
+}
+
+.input-group-text {
+  background-color: #f8f9fa;
+  border-radius: 8px 0 0 8px;
+  color: #6c757d;
+}
+
+.btn-gradient {
+  background: linear-gradient(45deg, #007bff, #00bcd4);
+  border: none;
+  padding: 12px;
+  font-weight: 500;
+  transition: background 0.3s ease, transform 0.2s ease;
+}
+
+.btn-gradient:hover {
+  background: linear-gradient(45deg, #0056b3, #0097a7);
+  transform: translateY(-2px);
+}
+
+.btn-gradient:disabled {
+  background: #6c757d;
+  cursor: not-allowed;
+}
+
+.alert {
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.text-danger {
+  font-size: 0.85rem;
+}
+
+.text-primary:hover {
+  color: #0056b3 !important;
+}
