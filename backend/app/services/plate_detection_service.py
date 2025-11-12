@@ -28,22 +28,70 @@ class PlateDetectionService:
         # Apply bilateral filter to reduce noise while keeping edges sharp
         gray = cv2.bilateralFilter(gray, 11, 17, 17)
         
+        # Apply CLAHE (Contrast Limited Adaptive Histogram Equalization)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+        
         return gray
+    
+    def preprocess_plate_roi(self, roi: np.ndarray) -> np.ndarray:
+        """Advanced preprocessing specifically for plate text extraction"""
+        # Convert to grayscale if needed
+        if len(roi.shape) == 3:
+            gray = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = roi.copy()
+        
+        # Upscale the image if too small (helps with OCR accuracy)
+        if gray.shape[0] < 50 or gray.shape[1] < 200:
+            gray = cv2.resize(gray, None, fx=2, fy=2, interpolation=cv2.INTER_CUBIC)
+        
+        # Apply CLAHE for better contrast
+        clahe = cv2.createCLAHE(clipLimit=3.0, tileGridSize=(8, 8))
+        gray = clahe.apply(gray)
+        
+        # Apply bilateral filter to remove noise
+        gray = cv2.bilateralFilter(gray, 9, 75, 75)
+        
+        # Apply adaptive thresholding
+        thresh = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                                      cv2.THRESH_BINARY, 11, 2)
+        
+        # Morphological operations to improve text visibility
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+        thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel, iterations=1)
+        
+        # Invert if needed (text should be black on white for OCR)
+        # Check if text is mostly white
+        if np.sum(thresh) > thresh.size * 255 * 0.5:
+            thresh = cv2.bitwise_not(thresh)
+        
+        return thresh
     
     def detect_plate_contours(self, image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         """Detect license plate using contour detection"""
         gray = self.preprocess_image(image)
         
-        # Apply edge detection
-        edges = cv2.Canny(gray, 30, 200)
+        # Apply morphological operations to enhance plate edges
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        morph = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel, iterations=2)
+        morph = cv2.morphologyEx(morph, cv2.MORPH_OPEN, kernel, iterations=1)
+        
+        # Apply edge detection with refined parameters
+        edges = cv2.Canny(morph, 100, 200)
+        
+        # Dilate edges to connect broken lines
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        edges = cv2.dilate(edges, kernel, iterations=2)
         
         # Find contours
         contours, _ = cv2.findContours(edges.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:15]
         
         plate_contour = None
         
-        # Find rectangular contours
+        # Find rectangular contours that match license plate characteristics
         for contour in contours:
             perimeter = cv2.arcLength(contour, True)
             approx = cv2.approxPolyDP(contour, 0.018 * perimeter, True)
@@ -51,10 +99,12 @@ class PlateDetectionService:
             # If contour has 4 points, it's likely a rectangle
             if len(approx) == 4:
                 x, y, w, h = cv2.boundingRect(approx)
-                aspect_ratio = w / float(h)
+                aspect_ratio = w / float(h) if h > 0 else 0
+                area = w * h
                 
-                # License plates typically have aspect ratio between 2 and 5
-                if 2.0 <= aspect_ratio <= 5.0:
+                # License plates typically have aspect ratio between 2 and 6
+                # and minimum area for visibility
+                if 2.0 <= aspect_ratio <= 6.0 and area > 1000:
                     plate_contour = (x, y, w, h)
                     break
         
@@ -63,19 +113,45 @@ class PlateDetectionService:
     def extract_text_from_roi(self, roi: np.ndarray) -> Tuple[Optional[str], float]:
         """Extract text from ROI using OCR"""
         try:
+            # Preprocess the ROI for better OCR
+            processed_roi = self.preprocess_plate_roi(roi)
+            
             # Use EasyOCR to read text
-            results = self.reader.readtext(roi)
+            results = self.reader.readtext(processed_roi)
             
             if results:
-                # Get the text with highest confidence
-                best_result = max(results, key=lambda x: x[2])
-                text = best_result[1].upper().replace(" ", "")
-                confidence = best_result[2]
+                # Combine all detected texts
+                all_texts = []
+                confidences = []
                 
-                # Filter out non-alphanumeric characters
-                text = ''.join(c for c in text if c.isalnum())
+                for detection in results:
+                    text = detection[1].upper().strip()
+                    confidence = detection[2]
+                    
+                    if confidence > 0.3:  # Only consider reasonably confident detections
+                        all_texts.append(text)
+                        confidences.append(confidence)
                 
-                return text, confidence
+                if all_texts:
+                    # Join texts and clean
+                    combined_text = ''.join(all_texts).replace(" ", "")
+                    
+                    # Filter out unwanted characters (keep only alphanumeric)
+                    cleaned_text = ''.join(c for c in combined_text if c.isalnum())
+                    
+                    # Calculate average confidence
+                    avg_confidence = sum(confidences) / len(confidences) if confidences else 0.0
+                    
+                    # Validate plate format (typical license plates have 5-8 alphanumeric chars)
+                    if 4 <= len(cleaned_text) <= 12:
+                        return cleaned_text, avg_confidence
+                    else:
+                        # Try fallback: get the text with highest confidence
+                        best_result = max(results, key=lambda x: x[2])
+                        text = best_result[1].upper().replace(" ", "")
+                        text = ''.join(c for c in text if c.isalnum())
+                        if text:
+                            return text, best_result[2]
             
             return None, 0.0
         
