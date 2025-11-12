@@ -1,10 +1,20 @@
 import cv2
 import numpy as np
 import easyocr
-from typing import Optional, Tuple, Dict
+from typing import Optional, Tuple, Dict, List
 import time
 from PIL import Image
 import os
+from dataclasses import dataclass
+
+@dataclass
+class DetectionResult:
+    """Result from a single detection strategy"""
+    text: Optional[str]
+    confidence: float
+    bounding_box: Optional[Dict]
+    strategy: str
+    success: bool
 
 class PlateDetectionService:
     """Service for detecting and recognizing license plates"""
@@ -68,6 +78,118 @@ class PlateDetectionService:
             thresh = cv2.bitwise_not(thresh)
         
         return thresh
+    
+    def detect_center_region(self, image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+        """Detect license plate in center region (optimized for centered plates)"""
+        h, w = image.shape[:2]
+        
+        # Define center region (60% width x 40% height, centered)
+        center_w_ratio = 0.6
+        center_h_ratio = 0.4
+        
+        x_start = int(w * (1 - center_w_ratio) / 2)
+        y_start = int(h * (1 - center_h_ratio) / 2)
+        x_end = int(x_start + w * center_w_ratio)
+        y_end = int(y_start + h * center_h_ratio)
+        
+        # Extract center region
+        center_roi = image[y_start:y_end, x_start:x_end]
+        
+        # Detect plate in center region
+        gray = self.preprocess_image(center_roi)
+        
+        # Apply morphological operations
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        morph = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel, iterations=2)
+        
+        # Apply Canny edge detection
+        edges = cv2.Canny(morph, 80, 180)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (3, 3))
+        edges = cv2.dilate(edges, kernel, iterations=2)
+        
+        # Find contours
+        contours, _ = cv2.findContours(edges.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
+        
+        # Find rectangular contours
+        for contour in contours:
+            perimeter = cv2.arcLength(contour, True)
+            approx = cv2.approxPolyDP(contour, 0.018 * perimeter, True)
+            
+            if len(approx) == 4:
+                x, y, box_w, box_h = cv2.boundingRect(approx)
+                aspect_ratio = box_w / float(box_h) if box_h > 0 else 0
+                area = box_w * box_h
+                
+                # Stricter criteria for centered plates
+                if 2.0 <= aspect_ratio <= 6.0 and area > 800:
+                    # Return coordinates relative to original image
+                    return (x + x_start, y + y_start, box_w, box_h)
+        
+        return None
+    
+    def detect_hsv_region(self, image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+        """Detect license plate using HSV color space (targets yellow/white regions)"""
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        
+        # Yellow region for license plates
+        lower_yellow = np.array([15, 100, 100])
+        upper_yellow = np.array([35, 255, 255])
+        
+        # White region
+        lower_white = np.array([0, 0, 200])
+        upper_white = np.array([180, 50, 255])
+        
+        # Create masks
+        mask_yellow = cv2.inRange(hsv, lower_yellow, upper_yellow)
+        mask_white = cv2.inRange(hsv, lower_white, upper_white)
+        mask = cv2.bitwise_or(mask_yellow, mask_white)
+        
+        # Morphological operations
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel, iterations=2)
+        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel, iterations=1)
+        
+        # Find contours
+        contours, _ = cv2.findContours(mask.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:10]
+        
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = w / float(h) if h > 0 else 0
+            
+            if 2.0 <= aspect_ratio <= 6.0 and cv2.contourArea(contour) > 1000:
+                return (x, y, w, h)
+        
+        return None
+    
+    def detect_horizontal_lines(self, image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
+        """Detect license plate using horizontal line detection"""
+        gray = self.preprocess_image(image)
+        
+        # Apply morphological operations to enhance horizontal lines
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (15, 2))
+        morph = cv2.morphologyEx(gray, cv2.MORPH_CLOSE, kernel, iterations=1)
+        
+        # Apply Canny
+        edges = cv2.Canny(morph, 100, 200)
+        
+        # Dilate to connect components
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 2))
+        edges = cv2.dilate(edges, kernel, iterations=2)
+        
+        # Find contours
+        contours, _ = cv2.findContours(edges.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        contours = sorted(contours, key=cv2.contourArea, reverse=True)[:15]
+        
+        for contour in contours:
+            x, y, w, h = cv2.boundingRect(contour)
+            aspect_ratio = w / float(h) if h > 0 else 0
+            
+            if 2.0 <= aspect_ratio <= 8.0 and cv2.contourArea(contour) > 1000:
+                return (x, y, w, h)
+        
+        return None
     
     def detect_plate_contours(self, image: np.ndarray) -> Optional[Tuple[int, int, int, int]]:
         """Detect license plate using contour detection"""
@@ -161,7 +283,7 @@ class PlateDetectionService:
     
     def detect_plate(self, image_path: str) -> Dict:
         """
-        Main method to detect and recognize license plate
+        Main method to detect and recognize license plate using multiple strategies
         
         Returns:
             dict with keys: detected_plate, confidence, bounding_box, detection_time, status
@@ -181,52 +303,90 @@ class PlateDetectionService:
                     "error_message": "Could not read image"
                 }
             
-            # Try cascade classifier first (if available)
-            if self.plate_cascade is not None:
-                gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-                plates = self.plate_cascade.detectMultiScale(gray, 1.1, 4)
-                
-                if len(plates) > 0:
-                    x, y, w, h = plates[0]
-                    bounding_box = {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
-                else:
-                    # Fallback to contour detection
-                    result = self.detect_plate_contours(image)
-                    if result:
-                        x, y, w, h = result
-                        bounding_box = {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
-                    else:
-                        bounding_box = None
-            else:
-                # Use contour detection
-                result = self.detect_plate_contours(image)
-                if result:
-                    x, y, w, h = result
-                    bounding_box = {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
-                else:
-                    bounding_box = None
+            # Try multiple detection strategies
+            detection_results: List[DetectionResult] = []
             
-            # Extract ROI and perform OCR
-            if bounding_box:
-                x, y, w, h = bounding_box["x"], bounding_box["y"], bounding_box["width"], bounding_box["height"]
+            # Strategy 1: Center region detection (optimized for centered plates)
+            center_result = self.detect_center_region(image)
+            if center_result:
+                x, y, w, h = center_result
                 roi = image[y:y+h, x:x+w]
-                
                 plate_text, confidence = self.extract_text_from_roi(roi)
+                if plate_text and confidence > 0.4:
+                    detection_results.append(DetectionResult(
+                        text=plate_text,
+                        confidence=confidence,
+                        bounding_box={"x": int(x), "y": int(y), "width": int(w), "height": int(h)},
+                        strategy="center_region",
+                        success=True
+                    ))
+            
+            # Strategy 2: HSV color detection
+            hsv_result = self.detect_hsv_region(image)
+            if hsv_result:
+                x, y, w, h = hsv_result
+                roi = image[y:y+h, x:x+w]
+                plate_text, confidence = self.extract_text_from_roi(roi)
+                if plate_text and confidence > 0.4:
+                    detection_results.append(DetectionResult(
+                        text=plate_text,
+                        confidence=confidence,
+                        bounding_box={"x": int(x), "y": int(y), "width": int(w), "height": int(h)},
+                        strategy="hsv_color",
+                        success=True
+                    ))
+            
+            # Strategy 3: Horizontal line detection
+            line_result = self.detect_horizontal_lines(image)
+            if line_result:
+                x, y, w, h = line_result
+                roi = image[y:y+h, x:x+w]
+                plate_text, confidence = self.extract_text_from_roi(roi)
+                if plate_text and confidence > 0.4:
+                    detection_results.append(DetectionResult(
+                        text=plate_text,
+                        confidence=confidence,
+                        bounding_box={"x": int(x), "y": int(y), "width": int(w), "height": int(h)},
+                        strategy="horizontal_lines",
+                        success=True
+                    ))
+            
+            # Strategy 4: Standard contour detection
+            contour_result = self.detect_plate_contours(image)
+            if contour_result:
+                x, y, w, h = contour_result
+                roi = image[y:y+h, x:x+w]
+                plate_text, confidence = self.extract_text_from_roi(roi)
+                if plate_text and confidence > 0.4:
+                    detection_results.append(DetectionResult(
+                        text=plate_text,
+                        confidence=confidence,
+                        bounding_box={"x": int(x), "y": int(y), "width": int(w), "height": int(h)},
+                        strategy="contour_detection",
+                        success=True
+                    ))
+            
+            # Select best result
+            if detection_results:
+                # Sort by confidence (descending)
+                detection_results.sort(key=lambda x: x.confidence, reverse=True)
+                best_result = detection_results[0]
                 
-                if plate_text:
+                # Validate the best result
+                if best_result.text and len(best_result.text) >= 4:
                     return {
-                        "detected_plate": plate_text,
-                        "confidence": confidence,
-                        "bounding_box": bounding_box,
+                        "detected_plate": best_result.text,
+                        "confidence": best_result.confidence,
+                        "bounding_box": best_result.bounding_box,
                         "detection_time": time.time() - start_time,
                         "status": "success",
                         "error_message": None
                     }
             
-            # If no plate detected, try OCR on entire image
+            # Fallback: Try OCR on entire image
             plate_text, confidence = self.extract_text_from_roi(image)
             
-            if plate_text:
+            if plate_text and confidence > 0.3:
                 return {
                     "detected_plate": plate_text,
                     "confidence": confidence,
@@ -242,10 +402,11 @@ class PlateDetectionService:
                 "bounding_box": None,
                 "detection_time": time.time() - start_time,
                 "status": "failed",
-                "error_message": "No plate detected"
+                "error_message": "No plate detected with sufficient confidence"
             }
         
         except Exception as e:
+            print(f"Detection Error: {e}")
             return {
                 "detected_plate": None,
                 "confidence": 0.0,
