@@ -1,5 +1,5 @@
 from fastapi import APIRouter, UploadFile, File, Depends, HTTPException, status
-from typing import List
+from typing import List, Optional, Dict
 from pydantic import BaseModel
 import os
 import uuid
@@ -13,9 +13,9 @@ router = APIRouter()
 
 class DetectionResponse(BaseModel):
     id: str
-    detected_plate: str = None
-    confidence: float = None
-    bounding_box: dict = None
+    detected_plate: Optional[str] = None
+    confidence: Optional[float] = None
+    bounding_box: Optional[Dict] = None
     detection_time: float
     status: str
     image_url: str
