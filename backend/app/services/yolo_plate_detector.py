@@ -60,10 +60,11 @@ class YOLOPlateDetector:
         
         Search order:
         1. Custom model_path (if provided)
-        2. model/best.pt (custom trained)
-        3. model/best002.pt (alternative)
-        4. ../model/best.pt (alternative location)
-        5. yolov8n (default nano model)
+        2. model/best002.pt (primary custom trained)
+        3. backend/model/best002.pt (alternative location)
+        4. model/best.pt (secondary custom)
+        5. ../model/best.pt (alternative location)
+        6. yolov8n (default nano model)
         
         Args:
             model_path: Optional explicit path to model
@@ -76,13 +77,14 @@ class YOLOPlateDetector:
             print(f"[YOLO] Loading model from: {model_path}")
             return YOLO(model_path)
 
-        # Search for custom models
+        # Search for custom models (best002.pt prioritized)
         candidates = [
-            "backend/model/best.pt",
-            "model/best.pt",
             "model/best002.pt",
-            "../model/best.pt",
             "backend/model/best002.pt",
+            "best002.pt",
+            "model/best.pt",
+            "backend/model/best.pt",
+            "../model/best.pt",
         ]
 
         for candidate in candidates:
