@@ -7,6 +7,14 @@ from PIL import Image
 import os
 from dataclasses import dataclass
 
+# Try to import YOLO detector
+try:
+    from .yolo_plate_detector import create_yolo_detector, PlateDetection
+    YOLO_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    YOLO_AVAILABLE = False
+    PlateDetection = None
+
 @dataclass
 class DetectionResult:
     """Result from a single detection strategy"""
@@ -19,7 +27,7 @@ class DetectionResult:
 class PlateDetectionService:
     """Service for detecting and recognizing license plates"""
     
-    def __init__(self):
+    def __init__(self, model_path: Optional[str] = None):
         # Initialize EasyOCR reader
         self.reader = easyocr.Reader(['en'], gpu=False)
         
@@ -29,6 +37,18 @@ class PlateDetectionService:
         cascade_path = "haarcascade_russian_plate_number.xml"
         if os.path.exists(cascade_path):
             self.plate_cascade = cv2.CascadeClassifier(cascade_path)
+        
+        # Initialize YOLO detector if available
+        self.yolo_detector = None
+        self.use_yolo = False
+        if YOLO_AVAILABLE:
+            try:
+                self.yolo_detector = create_yolo_detector(model_path)
+                self.use_yolo = True
+                print("[PlateDetectionService] YOLO detector initialized successfully")
+            except Exception as e:
+                print(f"[PlateDetectionService] Failed to initialize YOLO: {e}")
+                self.use_yolo = False
     
     def preprocess_image(self, image: np.ndarray) -> np.ndarray:
         """Preprocess image for better plate detection"""
@@ -283,10 +303,13 @@ class PlateDetectionService:
     
     def detect_plate(self, image_path: str) -> Dict:
         """
-        Main method to detect and recognize license plate using multiple strategies
+        Main method to detect and recognize license plate.
+        
+        Uses YOLO if available, falls back to legacy multi-strategy detection.
         
         Returns:
-            dict with keys: detected_plate, confidence, bounding_box, detection_time, status
+            dict with keys: detected_plate, confidence, bounding_box, detection_time, status,
+                           is_valid_format, detection_method, all_detections
         """
         start_time = time.time()
         
@@ -300,9 +323,149 @@ class PlateDetectionService:
                     "bounding_box": None,
                     "detection_time": time.time() - start_time,
                     "status": "failed",
-                    "error_message": "Could not read image"
+                    "error_message": "Could not read image",
+                    "detection_method": "none",
+                    "is_valid_format": False,
+                    "all_detections": []
                 }
             
+            # Try YOLO first if available
+            if self.use_yolo and self.yolo_detector:
+                return self._detect_plate_yolo(image, start_time)
+            
+            # Fall back to legacy detection
+            return self._detect_plate_legacy(image, start_time)
+        
+        except Exception as e:
+            print(f"Detection Error: {e}")
+            return {
+                "detected_plate": None,
+                "confidence": 0.0,
+                "bounding_box": None,
+                "detection_time": time.time() - start_time,
+                "status": "failed",
+                "error_message": str(e),
+                "detection_method": "none",
+                "is_valid_format": False,
+                "all_detections": []
+            }
+    
+    def _detect_plate_yolo(self, image: np.ndarray, start_time: float) -> Dict:
+        """
+        Detect plate using YOLO.
+        
+        Args:
+            image: Input image (BGR from OpenCV)
+            start_time: Time when detection started
+            
+        Returns:
+            Detection result dictionary
+        """
+        try:
+            # Run YOLO detection
+            detections = self.yolo_detector.detect_plates(image)
+            
+            if not detections:
+                return {
+                    "detected_plate": None,
+                    "confidence": 0.0,
+                    "bounding_box": None,
+                    "detection_time": time.time() - start_time,
+                    "status": "failed",
+                    "error_message": "No plates detected",
+                    "detection_method": "yolo",
+                    "is_valid_format": False,
+                    "all_detections": []
+                }
+            
+            # Select best detection (highest confidence valid plate)
+            best_detection = None
+            for detection in detections:
+                if detection.is_valid_format:
+                    best_detection = detection
+                    break
+            
+            # If no valid format found, use highest confidence
+            if not best_detection:
+                best_detection = max(detections, key=lambda d: d.confidence)
+            
+            # Format bounding box for compatibility
+            x1, y1, x2, y2 = best_detection.bounding_box
+            bbox_dict = {
+                "x": int(x1),
+                "y": int(y1),
+                "width": int(x2 - x1),
+                "height": int(y2 - y1)
+            }
+            
+            # Convert all detections to dict format
+            all_detections = [
+                {
+                    "plate_text": d.plate_text,
+                    "confidence": float(d.confidence),
+                    "is_valid_format": d.is_valid_format,
+                    "bounding_box": {
+                        "x": int(d.bounding_box[0]),
+                        "y": int(d.bounding_box[1]),
+                        "width": int(d.bounding_box[2] - d.bounding_box[0]),
+                        "height": int(d.bounding_box[3] - d.bounding_box[1])
+                    }
+                }
+                for d in detections
+            ]
+            
+            return {
+                "detected_plate": best_detection.plate_text,
+                "confidence": float(best_detection.confidence),
+                "bounding_box": bbox_dict,
+                "detection_time": time.time() - start_time,
+                "status": "success",
+                "error_message": None,
+                "detection_method": "yolo",
+                "is_valid_format": best_detection.is_valid_format,
+                "all_detections": all_detections
+            }
+        
+        except Exception as e:
+            print(f"[YOLO Detection Error] {e}")
+            # Fall back to legacy on YOLO error
+            return self._detect_plate_legacy(None, start_time) if False else {
+                "detected_plate": None,
+                "confidence": 0.0,
+                "bounding_box": None,
+                "detection_time": time.time() - start_time,
+                "status": "failed",
+                "error_message": f"YOLO detection failed: {str(e)}",
+                "detection_method": "yolo",
+                "is_valid_format": False,
+                "all_detections": []
+            }
+    
+    def _detect_plate_legacy(self, image: Optional[np.ndarray], start_time: float) -> Dict:
+        """
+        Legacy multi-strategy plate detection (fallback from YOLO).
+        
+        Args:
+            image: Input image (BGR from OpenCV) - can be None if called for error fallback
+            start_time: Time when detection started
+            
+        Returns:
+            Detection result dictionary
+        """
+        if image is None or image.size == 0:
+            return {
+                "detected_plate": None,
+                "confidence": 0.0,
+                "bounding_box": None,
+                "detection_time": time.time() - start_time,
+                "status": "failed",
+                "error_message": "No valid image provided",
+                "detection_method": "legacy",
+                "is_valid_format": False,
+                "all_detections": []
+            }
+            
+        try:
             # Try multiple detection strategies
             detection_results: List[DetectionResult] = []
             
@@ -380,7 +543,10 @@ class PlateDetectionService:
                         "bounding_box": best_result.bounding_box,
                         "detection_time": time.time() - start_time,
                         "status": "success",
-                        "error_message": None
+                        "error_message": None,
+                        "detection_method": "legacy",
+                        "is_valid_format": False,
+                        "all_detections": []
                     }
             
             # Fallback: Try OCR on entire image
@@ -393,7 +559,10 @@ class PlateDetectionService:
                     "bounding_box": None,
                     "detection_time": time.time() - start_time,
                     "status": "success",
-                    "error_message": None
+                    "error_message": None,
+                    "detection_method": "legacy",
+                    "is_valid_format": False,
+                    "all_detections": []
                 }
             
             return {
@@ -402,26 +571,32 @@ class PlateDetectionService:
                 "bounding_box": None,
                 "detection_time": time.time() - start_time,
                 "status": "failed",
-                "error_message": "No plate detected with sufficient confidence"
+                "error_message": "No plate detected with sufficient confidence",
+                "detection_method": "legacy",
+                "is_valid_format": False,
+                "all_detections": []
             }
         
         except Exception as e:
-            print(f"Detection Error: {e}")
+            print(f"Legacy Detection Error: {e}")
             return {
                 "detected_plate": None,
                 "confidence": 0.0,
                 "bounding_box": None,
                 "detection_time": time.time() - start_time,
                 "status": "failed",
-                "error_message": str(e)
+                "error_message": str(e),
+                "detection_method": "legacy",
+                "is_valid_format": False,
+                "all_detections": []
             }
 
 # Singleton instance
 _plate_detection_service = None
 
-def get_plate_detection_service() -> PlateDetectionService:
+def get_plate_detection_service(model_path: Optional[str] = None) -> PlateDetectionService:
     """Get singleton instance of PlateDetectionService"""
     global _plate_detection_service
     if _plate_detection_service is None:
-        _plate_detection_service = PlateDetectionService()
+        _plate_detection_service = PlateDetectionService(model_path=model_path)
     return _plate_detection_service

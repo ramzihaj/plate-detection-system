@@ -206,6 +206,17 @@ ENV/
 backend/uploads/
 backend/.env
 
+# Model files (large binary files)
+*.pt
+*.pth
+*.onnx
+*.bin
+
+# Data and model directories
+data/
+model/
+backend/model/
+
 # Frontend
 frontend/node_modules/
 frontend/package-lock.json
