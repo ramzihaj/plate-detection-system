@@ -60,11 +60,10 @@ class YOLOPlateDetector:
         
         Search order:
         1. Custom model_path (if provided)
-        2. model/best002.pt (primary custom trained)
-        3. backend/model/best002.pt (alternative location)
-        4. ../model/best002.pt (parent directory)
-        5. Absolute path to project model directory
-        6. yolov8n (default nano model)
+        2. ../model/best002.pt (primary - relative to backend dir)
+        3. model/best002.pt (from project root)
+        4. Absolute path calculations
+        5. yolov8n (default nano model)
         
         Args:
             model_path: Optional explicit path to model
@@ -74,37 +73,32 @@ class YOLOPlateDetector:
         """
         # Explicit path provided
         if model_path and os.path.exists(model_path):
-            print(f"[YOLO] Loading model from: {model_path}")
+            print(f"[YOLO] ✅ Loading model from: {model_path}")
             return YOLO(model_path)
 
-        # Get absolute path to project root
-        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        project_root = os.path.dirname(backend_dir)
-        
-        # Search for custom models (best002.pt prioritized)
+        # Search for custom models - ORDERED BY PRIORITY
+        # When running from backend/app/services/, ../model/best002.pt is correct
         candidates = [
-            "model/best002.pt",
-            "backend/model/best002.pt",
-            "best002.pt",
-            "../model/best002.pt",
-            "../../model/best002.pt",
-            os.path.join(project_root, "model", "best002.pt"),
-            os.path.join(project_root, "model", "best.pt"),
-            "model/best.pt",
-            "backend/model/best.pt",
+            "../model/best002.pt",      # Most common when running from backend
+            "../../model/best002.pt",   # From nested app/services directory
+            "model/best002.pt",         # From project root
+            "backend/model/best002.pt", # Alternative
             "../model/best.pt",
+            "model/best.pt",
         ]
 
-        print(f"[YOLO] Searching for model in: {project_root}")
+        print(f"[YOLO] Searching for best002.pt model...")
         for candidate in candidates:
             if os.path.exists(candidate):
                 abs_path = os.path.abspath(candidate)
                 print(f"[YOLO] ✅ Found custom model: {candidate}")
-                print(f"[YOLO] Absolute path: {abs_path}")
+                print(f"[YOLO]    Size: {os.path.getsize(candidate) / (1024*1024):.1f} MB")
                 try:
-                    return YOLO(candidate)
+                    model = YOLO(candidate)
+                    print(f"[YOLO] ✅ Successfully loaded best002.pt (optimized for plates)")
+                    return model
                 except Exception as e:
-                    print(f"[YOLO] Failed to load {candidate}: {e}")
+                    print(f"[YOLO] ⚠️ Failed to load {candidate}: {e}")
                     continue
 
         # Fallback to default
