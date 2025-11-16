@@ -130,13 +130,15 @@ class YOLOPlateDetector:
                     plate_region = image[y1:y2, x1:x2]
 
                     # Extract text from plate
-                    plate_text = self._extract_text_from_plate(plate_region)
+                    raw_text = self._extract_text_from_plate(plate_region)
 
-                    # Validate Tunisian format
-                    is_valid, formatted_text = self.validator.validate_and_format(plate_text)
+                    # Validate and format Tunisian format
+                    is_valid, formatted_text = self.validator.validate_and_format(raw_text)
 
+                    # Always use the formatted text (whether valid or not)
+                    # The validator will clean and attempt to fix the format
                     detections.append(PlateDetection(
-                        plate_text=formatted_text if is_valid else plate_text,
+                        plate_text=formatted_text if formatted_text else raw_text,
                         confidence=confidence,
                         bounding_box=bbox,
                         is_valid_format=is_valid,
