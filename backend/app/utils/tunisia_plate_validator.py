@@ -3,10 +3,11 @@ Tunisian license plate validator and formatter.
 
 Tunisian plate format: XXXTNXXXX
 - First 3 characters: digits (0-9)
-- 4-5: "TN" (fixed)
+- 4-5: "TN" (fixed) or Arabic equivalent (ت ن)
 - Last 4 characters: digits (0-9)
 
 Example: 199TN0199
+Arabic variant: 199تن0199 (will be converted to 199TN0199)
 """
 
 import re
@@ -15,6 +16,10 @@ from typing import Tuple
 
 class TunisianPlateValidator:
     """Validate and format Tunisian license plates."""
+    
+    # Arabic characters for Tunisia country code
+    ARABIC_TA = 'ت'  # Arabic ta (equivalent to 'T')
+    ARABIC_NOON = 'ن'  # Arabic noon (equivalent to 'N')
     
     # OCR error correction mapping
     # Common misreadings: O/l/I/S/B/Z/G confusion with numbers
@@ -75,16 +80,21 @@ class TunisianPlateValidator:
         """
         Clean OCR text by removing spaces and applying error correction.
         
+        Handles both Latin (TN) and Arabic (تن) country markers.
         Protects TN marker during cleaning process.
         
         Args:
             text: Raw OCR text
             
         Returns:
-            Cleaned text
+            Cleaned text with TN marker
         """
         # Remove spaces and special characters
         text = text.upper().replace(" ", "").replace("-", "")
+        
+        # Replace Arabic characters with Latin equivalents
+        # ت (ta) -> T, ن (noon) -> N
+        text = text.replace(self.ARABIC_TA, 'T').replace(self.ARABIC_NOON, 'N')
         
         # Protect TN marker with placeholder
         text = text.replace("TN", "__TN__")
