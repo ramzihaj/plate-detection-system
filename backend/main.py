@@ -58,5 +58,5 @@ if __name__ == "__main__":
         "main:app",
         host=settings.HOST,
         port=settings.PORT,
-        reload=settings.DEBUG
+        reload=False  # Disabled to avoid PyTorch multiprocessing issues on Windows
     )

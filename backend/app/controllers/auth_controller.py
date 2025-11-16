@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from pydantic import BaseModel, EmailStr, Field
 from datetime import timedelta
+from typing import Optional
 from app.core.security import (
     verify_password,
     get_password_hash,
@@ -17,7 +18,7 @@ class UserRegister(BaseModel):
     email: EmailStr
     username: str = Field(..., min_length=3, max_length=50)
     password: str = Field(..., min_length=6)
-    full_name: str = None
+    full_name: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -31,7 +32,7 @@ class UserResponse(BaseModel):
     id: str
     email: str
     username: str
-    full_name: str = None
+    full_name: Optional[str] = None
     is_active: bool
     created_at: str
 
