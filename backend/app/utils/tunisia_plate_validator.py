@@ -17,14 +17,22 @@ class TunisianPlateValidator:
     """Validate and format Tunisian license plates."""
     
     # OCR error correction mapping
+    # Common misreadings: O/l/I/S/B/Z/G confusion with numbers
     OCR_ERROR_MAP = {
-        'O': '0',  # O -> 0
+        'O': '0',  # O -> 0 (most common)
         'I': '1',  # I -> 1
         'L': '1',  # L -> 1
         'S': '5',  # S -> 5
         'B': '8',  # B -> 8
         'Z': '2',  # Z -> 2
         'G': '9',  # G -> 9
+        'o': '0',  # lowercase o -> 0
+        'i': '1',  # lowercase i -> 1
+        'l': '1',  # lowercase l -> 1
+        's': '5',  # lowercase s -> 5
+        'b': '8',  # lowercase b -> 8
+        'z': '2',  # lowercase z -> 2
+        'g': '9',  # lowercase g -> 9
     }
     
     # Tunisian plate regex pattern

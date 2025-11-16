@@ -163,6 +163,8 @@ class YOLOPlateDetector:
         """
         Extract text from plate image using OCR.
         
+        Optimized parameters for license plate text extraction.
+        
         Args:
             plate_image: Cropped plate image
             
@@ -172,20 +174,42 @@ class YOLOPlateDetector:
         if plate_image is None or plate_image.size == 0:
             return ""
 
-        # Preprocess plate
+        # Preprocess plate for OCR
         processed = self._preprocess_plate(plate_image)
 
         try:
-            # OCR with confidence filtering
-            results = self.reader.readtext(processed, detail=1)
+            # EasyOCR with optimized parameters for plate detection
+            # - paragraph=False: Better for single-line text
+            # - min_size: Filter out very small noise
+            # - batch_size: Can improve performance on multiple lines
+            results = self.reader.readtext(
+                processed,
+                detail=1,
+                paragraph=False,
+                batch_size=1
+            )
 
-            # Filter by confidence (0.3+) and extract text
-            texts = [
-                text for (bbox, text, confidence) in results
-                if confidence > 0.3
-            ]
+            if not results:
+                return ""
 
-            return "".join(texts).strip()
+            # Collect all text blocks
+            text_blocks = []
+            for bbox, text, confidence in results:
+                # Keep blocks with at least 15% confidence (very permissive)
+                if confidence > 0.15 and text.strip():
+                    text_blocks.append(text.strip())
+                    if confidence < 0.5:  # Log weak detections
+                        print(f"[OCR] Weak detection: '{text}' ({confidence:.0%})")
+
+            if not text_blocks:
+                return ""
+
+            # Join all detected text blocks
+            extracted = "".join(text_blocks)
+            
+            print(f"[OCR] Extracted: '{extracted}' ({len(text_blocks)} blocks, raw: {len(results)} detections)")
+            
+            return extracted
 
         except Exception as e:
             print(f"[OCR] Error: {str(e)}")
@@ -195,11 +219,10 @@ class YOLOPlateDetector:
         """
         Preprocess plate image for better OCR.
         
-        Steps:
-        1. 3x upscaling
-        2. CLAHE (Contrast Limited Adaptive Histogram Equalization)
-        3. Bilateral filtering
-        4. Adaptive thresholding
+        Simplified preprocessing that preserves image clarity:
+        1. Convert to grayscale
+        2. 3x upscaling for better character clarity
+        3. Subtle contrast enhancement
         
         Args:
             plate_image: Input plate image
@@ -210,25 +233,21 @@ class YOLOPlateDetector:
         if plate_image is None or plate_image.size == 0:
             return plate_image
 
-        # Upscale 3x
-        h, w = plate_image.shape[:2]
-        upscaled = cv2.resize(plate_image, (w * 3, h * 3), interpolation=cv2.INTER_CUBIC)
-
         # Convert to grayscale
-        gray = cv2.cvtColor(upscaled, cv2.COLOR_BGR2GRAY) if len(upscaled.shape) == 3 else upscaled
+        if len(plate_image.shape) == 3:
+            gray = cv2.cvtColor(plate_image, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = plate_image
 
-        # CLAHE for contrast
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        enhanced = clahe.apply(gray)
+        # Upscale 3x for better character clarity
+        h, w = gray.shape[:2]
+        upscaled = cv2.resize(gray, (w * 3, h * 3), interpolation=cv2.INTER_CUBIC)
 
-        # Bilateral filtering to preserve edges
-        bilateral = cv2.bilateralFilter(enhanced, 9, 75, 75)
+        # Subtle contrast enhancement (avoid over-processing)
+        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
+        enhanced = clahe.apply(upscaled)
 
-        # Adaptive thresholding
-        thresh = cv2.adaptiveThreshold(bilateral, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                                       cv2.THRESH_BINARY, 11, 2)
-
-        return thresh
+        return enhanced
 
     def draw_detections(self, image: np.ndarray, detections: List[PlateDetection]) -> np.ndarray:
         """
