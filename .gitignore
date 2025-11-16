@@ -199,6 +199,7 @@ wheels/
 *.egg
 MANIFEST
 venv/
+venv_new/
 env/
 ENV/
 
