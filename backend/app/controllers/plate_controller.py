@@ -85,6 +85,73 @@ async def detect_plate(
         created_at=detection.created_at.isoformat()
     )
 
+class VideoDetectionResponse(BaseModel):
+    detections: List[Dict]
+    total_frames: int
+    processed_frames: int
+    detection_time: float
+    status: str
+    video_duration: float
+    video_url: str
+
+@router.post("/detect-video", response_model=VideoDetectionResponse)
+async def detect_plate_video(
+    file: UploadFile = File(...),
+    current_user: dict = Depends(get_current_user)
+):
+    """Detect license plates in uploaded video"""
+    
+    # Validate file type
+    if not file.content_type.startswith("video/"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File must be a video"
+        )
+    
+    # Generate unique filename
+    file_extension = os.path.splitext(file.filename)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = os.path.join(settings.UPLOAD_DIR, "plates", unique_filename)
+    
+    # Save uploaded file
+    try:
+        with open(file_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to save file: {str(e)}"
+        )
+    
+    # Perform video plate detection
+    detection_service = get_plate_detection_service()
+    result = detection_service.detect_plate_video(file_path, frame_interval=30)
+    
+    # Store each detected plate as a separate detection record
+    for detection_data in result["detections"]:
+        detection = PlateDetection(
+            user_id=current_user["id"],
+            image_path=f"/uploads/plates/{unique_filename}",
+            detected_plate=detection_data["plate_text"],
+            confidence=detection_data["confidence"],
+            bounding_box=detection_data["bounding_box"],
+            detection_time=result["detection_time"],
+            status="success",
+            error_message=None
+        )
+        await detection.insert()
+    
+    return VideoDetectionResponse(
+        detections=result["detections"],
+        total_frames=result["total_frames"],
+        processed_frames=result["processed_frames"],
+        detection_time=result["detection_time"],
+        status=result["status"],
+        video_duration=result["video_duration"],
+        video_url=f"/uploads/plates/{unique_filename}"
+    )
+
 @router.get("/history", response_model=DetectionHistory)
 async def get_detection_history(
     page: int = 1,

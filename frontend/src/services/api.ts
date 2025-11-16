@@ -74,6 +74,18 @@ export const plateAPI = {
     return response.data;
   },
 
+  detectPlateVideo: async (file: File): Promise<any> => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post('/api/plates/detect-video', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
   getHistory: async (page = 1, pageSize = 10): Promise<DetectionHistory> => {
     const response = await api.get<DetectionHistory>('/api/plates/history', {
       params: { page, page_size: pageSize },

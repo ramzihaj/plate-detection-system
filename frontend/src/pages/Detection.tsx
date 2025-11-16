@@ -1,27 +1,37 @@
 import { useState } from 'react';
 import { plateAPI } from '../services/api';
 import { Detection as DetectionType } from '../types';
-import { Upload, Camera, Loader } from 'lucide-react';
+import { Upload, Camera, Loader, Video } from 'lucide-react';
 
 const Detection = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<DetectionType | null>(null);
+  const [videoResult, setVideoResult] = useState<any | null>(null);
   const [error, setError] = useState('');
+  const [fileType, setFileType] = useState<'image' | 'video'>('image');
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
       setResult(null);
+      setVideoResult(null);
       setError('');
       
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Determine file type
+      if (file.type.startsWith('video/')) {
+        setFileType('video');
+        setPreview(URL.createObjectURL(file));
+      } else {
+        setFileType('image');
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          setPreview(reader.result as string);
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
@@ -32,8 +42,13 @@ const Detection = () => {
     setError('');
 
     try {
-      const detection = await plateAPI.detectPlate(selectedFile);
-      setResult(detection);
+      if (fileType === 'video') {
+        const videoDetection = await plateAPI.detectPlateVideo(selectedFile);
+        setVideoResult(videoDetection);
+      } else {
+        const detection = await plateAPI.detectPlate(selectedFile);
+        setResult(detection);
+      }
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Erreur lors de la détection');
     } finally {
@@ -51,26 +66,34 @@ const Detection = () => {
           {!preview ? (
             <div>
               <Upload className="w-16 h-16 mx-auto text-gray-400 mb-4" />
-              <p className="text-lg mb-2">Glissez une image ici ou cliquez pour sélectionner</p>
-              <p className="text-sm text-gray-500 mb-4">JPG, PNG jusqu'à 10MB</p>
+              <p className="text-lg mb-2">Glissez une image ou vidéo ici</p>
+              <p className="text-sm text-gray-500 mb-4">Images: JPG, PNG | Vidéos: MP4, AVI, MOV</p>
               <input
                 type="file"
-                accept="image/*"
+                accept="image/*,video/*"
                 onChange={handleFileSelect}
                 className="hidden"
                 id="file-input"
               />
               <label htmlFor="file-input" className="btn-primary cursor-pointer inline-block">
-                Sélectionner une image
+                Sélectionner un fichier
               </label>
             </div>
           ) : (
             <div>
-              <img
-                src={preview}
-                alt="Preview"
-                className="max-h-96 mx-auto rounded-lg shadow-lg mb-4"
-              />
+              {fileType === 'image' ? (
+                <img
+                  src={preview}
+                  alt="Preview"
+                  className="max-h-96 mx-auto rounded-lg shadow-lg mb-4"
+                />
+              ) : (
+                <video
+                  src={preview}
+                  controls
+                  className="max-h-96 mx-auto rounded-lg shadow-lg mb-4"
+                />
+              )}
               <div className="flex gap-4 justify-center">
                 <button onClick={handleDetect} disabled={loading} className="btn-primary">
                   {loading ? (
@@ -80,7 +103,11 @@ const Detection = () => {
                     </>
                   ) : (
                     <>
-                      <Camera className="w-5 h-5 mr-2 inline" />
+                      {fileType === 'video' ? (
+                        <Video className="w-5 h-5 mr-2 inline" />
+                      ) : (
+                        <Camera className="w-5 h-5 mr-2 inline" />
+                      )}
                       Détecter
                     </>
                   )}
@@ -90,10 +117,11 @@ const Detection = () => {
                     setSelectedFile(null);
                     setPreview(null);
                     setResult(null);
+                    setVideoResult(null);
                   }}
                   className="btn-secondary"
                 >
-                  Nouvelle image
+                  Nouveau fichier
                 </button>
               </div>
             </div>
@@ -107,7 +135,7 @@ const Detection = () => {
           </div>
         )}
 
-        {/* Results */}
+        {/* Image Results */}
         {result && (
           <div className="mt-6 card bg-green-50 dark:bg-green-900/20">
             <h3 className="text-xl font-semibold mb-4">Résultat de la détection</h3>
@@ -137,6 +165,58 @@ const Detection = () => {
                 }`}>
                   {result.status === 'success' ? 'Succès' : 'Échec'}
                 </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Video Results */}
+        {videoResult && (
+          <div className="mt-6 card bg-blue-50 dark:bg-blue-900/20">
+            <h3 className="text-xl font-semibold mb-4">Résultats de la détection vidéo</h3>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <span className="font-medium">Durée de la vidéo:</span>
+                  <span className="ml-2">{videoResult.video_duration.toFixed(2)}s</span>
+                </div>
+                <div>
+                  <span className="font-medium">Temps de traitement:</span>
+                  <span className="ml-2">{videoResult.detection_time.toFixed(2)}s</span>
+                </div>
+                <div>
+                  <span className="font-medium">Frames totales:</span>
+                  <span className="ml-2">{videoResult.total_frames}</span>
+                </div>
+                <div>
+                  <span className="font-medium">Frames analysées:</span>
+                  <span className="ml-2">{videoResult.processed_frames}</span>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold mb-2">Plaques détectées ({videoResult.detections.length}):</h4>
+                {videoResult.detections.length > 0 ? (
+                  <div className="space-y-2">
+                    {videoResult.detections.map((detection: any, index: number) => (
+                      <div key={index} className="bg-white dark:bg-gray-800 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
+                        <div className="flex justify-between items-center">
+                          <span className="text-xl font-bold text-primary-600 dark:text-primary-400">
+                            {detection.plate_text}
+                          </span>
+                          <span className="text-sm text-gray-500">
+                            Confiance: {(detection.confidence * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                          Frame: {detection.frame_number} | Temps: {detection.timestamp.toFixed(2)}s
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500">Aucune plaque détectée dans la vidéo</p>
+                )}
               </div>
             </div>
           </div>

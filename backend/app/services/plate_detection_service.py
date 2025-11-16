@@ -590,6 +590,136 @@ class PlateDetectionService:
                 "is_valid_format": False,
                 "all_detections": []
             }
+    
+    def detect_plate_video(self, video_path: str, frame_interval: int = 30) -> Dict:
+        """
+        Detect license plates in a video file.
+        
+        Args:
+            video_path: Path to video file
+            frame_interval: Process every Nth frame (default: 30)
+            
+        Returns:
+            dict with keys: detections (list), total_frames, processed_frames, 
+                           detection_time, status, video_duration
+        """
+        start_time = time.time()
+        
+        try:
+            # Open video file
+            cap = cv2.VideoCapture(video_path)
+            
+            if not cap.isOpened():
+                return {
+                    "detections": [],
+                    "total_frames": 0,
+                    "processed_frames": 0,
+                    "detection_time": time.time() - start_time,
+                    "status": "failed",
+                    "error_message": "Could not open video file",
+                    "video_duration": 0
+                }
+            
+            # Get video properties
+            fps = cap.get(cv2.CAP_PROP_FPS)
+            total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            video_duration = total_frames / fps if fps > 0 else 0
+            
+            detections = []
+            frame_count = 0
+            processed_count = 0
+            
+            # Track unique plates to avoid duplicates
+            seen_plates = {}
+            
+            while True:
+                ret, frame = cap.read()
+                
+                if not ret:
+                    break
+                
+                frame_count += 1
+                
+                # Process every Nth frame
+                if frame_count % frame_interval == 0:
+                    processed_count += 1
+                    
+                    # Detect plate in frame using YOLO or legacy methods
+                    if self.use_yolo and self.yolo_detector:
+                        frame_detections = self.yolo_detector.detect_plates(frame)
+                        
+                        for detection in frame_detections:
+                            plate_text = detection.plate_text
+                            
+                            # Check if we've seen this plate
+                            if plate_text and plate_text not in seen_plates:
+                                seen_plates[plate_text] = {
+                                    "plate_text": plate_text,
+                                    "confidence": float(detection.confidence),
+                                    "frame_number": frame_count,
+                                    "timestamp": frame_count / fps if fps > 0 else 0,
+                                    "is_valid_format": detection.is_valid_format,
+                                    "bounding_box": {
+                                        "x": int(detection.bounding_box[0]),
+                                        "y": int(detection.bounding_box[1]),
+                                        "width": int(detection.bounding_box[2] - detection.bounding_box[0]),
+                                        "height": int(detection.bounding_box[3] - detection.bounding_box[1])
+                                    }
+                                }
+                            elif plate_text and detection.confidence > seen_plates[plate_text]["confidence"]:
+                                # Update with higher confidence detection
+                                seen_plates[plate_text]["confidence"] = float(detection.confidence)
+                                seen_plates[plate_text]["frame_number"] = frame_count
+                                seen_plates[plate_text]["timestamp"] = frame_count / fps if fps > 0 else 0
+                    else:
+                        # Use legacy detection
+                        # Try multiple detection strategies on frame
+                        center_result = self.detect_center_region(frame)
+                        if center_result:
+                            x, y, w, h = center_result
+                            roi = frame[y:y+h, x:x+w]
+                            plate_text, confidence = self.extract_text_from_roi(roi)
+                            
+                            if plate_text and confidence > 0.4:
+                                if plate_text not in seen_plates or confidence > seen_plates[plate_text]["confidence"]:
+                                    seen_plates[plate_text] = {
+                                        "plate_text": plate_text,
+                                        "confidence": float(confidence),
+                                        "frame_number": frame_count,
+                                        "timestamp": frame_count / fps if fps > 0 else 0,
+                                        "is_valid_format": False,
+                                        "bounding_box": {"x": int(x), "y": int(y), "width": int(w), "height": int(h)}
+                                    }
+            
+            cap.release()
+            
+            # Convert detections dict to list
+            detections = list(seen_plates.values())
+            
+            # Sort by confidence (descending)
+            detections.sort(key=lambda x: x["confidence"], reverse=True)
+            
+            return {
+                "detections": detections,
+                "total_frames": total_frames,
+                "processed_frames": processed_count,
+                "detection_time": time.time() - start_time,
+                "status": "success" if detections else "no_detections",
+                "error_message": None if detections else "No plates detected in video",
+                "video_duration": video_duration
+            }
+        
+        except Exception as e:
+            print(f"Video Detection Error: {e}")
+            return {
+                "detections": [],
+                "total_frames": 0,
+                "processed_frames": 0,
+                "detection_time": time.time() - start_time,
+                "status": "failed",
+                "error_message": str(e),
+                "video_duration": 0
+            }
 
 # Singleton instance
 _plate_detection_service = None
