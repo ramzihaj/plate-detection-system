@@ -31,10 +31,16 @@ mkdir frontend\src\components frontend\src\pages frontend\src\services frontend\
 
 ### Étape 2: Backend Setup
 
+**Option A - Script automatique (Recommandé):**
+```bash
+.\start_backend.ps1
+```
+
+**Option B - Manuel:**
 ```bash
 cd backend
-python -m venv venv
-venv\Scripts\activate
+python -m venv venv_new
+venv_new\Scripts\activate.ps1
 pip install -r requirements.txt
 copy .env.example .env
 # Éditer .env avec vos configurations
@@ -43,6 +49,12 @@ python main.py
 
 ### Étape 3: Frontend Setup
 
+**Option A - Script automatique (Recommandé):**
+```bash
+.\start_frontend.ps1
+```
+
+**Option B - Manuel:**
 ```bash
 cd frontend
 npm install
