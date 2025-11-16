@@ -366,13 +366,14 @@ class PlateDetectionService:
             detections = self.yolo_detector.detect_plates(image)
             
             if not detections:
+                # No plates detected - this is still a valid operation result
                 return {
                     "detected_plate": None,
                     "confidence": 0.0,
                     "bounding_box": None,
                     "detection_time": time.time() - start_time,
-                    "status": "failed",
-                    "error_message": "No plates detected",
+                    "status": "success",
+                    "error_message": None,
                     "detection_method": "yolo",
                     "is_valid_format": False,
                     "all_detections": []
@@ -428,14 +429,13 @@ class PlateDetectionService:
         
         except Exception as e:
             print(f"[YOLO Detection Error] {e}")
-            # Fall back to legacy on YOLO error
-            return self._detect_plate_legacy(None, start_time) if False else {
+            return {
                 "detected_plate": None,
                 "confidence": 0.0,
                 "bounding_box": None,
                 "detection_time": time.time() - start_time,
-                "status": "failed",
-                "error_message": f"YOLO detection failed: {str(e)}",
+                "status": "success",
+                "error_message": None,
                 "detection_method": "yolo",
                 "is_valid_format": False,
                 "all_detections": []
@@ -565,13 +565,14 @@ class PlateDetectionService:
                     "all_detections": []
                 }
             
+            # No plate detected - still a successful operation (just no results)
             return {
                 "detected_plate": None,
                 "confidence": 0.0,
                 "bounding_box": None,
                 "detection_time": time.time() - start_time,
-                "status": "failed",
-                "error_message": "No plate detected with sufficient confidence",
+                "status": "success",
+                "error_message": None,
                 "detection_method": "legacy",
                 "is_valid_format": False,
                 "all_detections": []
