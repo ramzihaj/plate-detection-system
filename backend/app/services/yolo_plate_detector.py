@@ -62,8 +62,8 @@ class YOLOPlateDetector:
         1. Custom model_path (if provided)
         2. model/best002.pt (primary custom trained)
         3. backend/model/best002.pt (alternative location)
-        4. model/best.pt (secondary custom)
-        5. ../model/best.pt (alternative location)
+        4. ../model/best002.pt (parent directory)
+        5. Absolute path to project model directory
         6. yolov8n (default nano model)
         
         Args:
@@ -77,23 +77,38 @@ class YOLOPlateDetector:
             print(f"[YOLO] Loading model from: {model_path}")
             return YOLO(model_path)
 
+        # Get absolute path to project root
+        backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        project_root = os.path.dirname(backend_dir)
+        
         # Search for custom models (best002.pt prioritized)
         candidates = [
             "model/best002.pt",
             "backend/model/best002.pt",
             "best002.pt",
+            "../model/best002.pt",
+            "../../model/best002.pt",
+            os.path.join(project_root, "model", "best002.pt"),
+            os.path.join(project_root, "model", "best.pt"),
             "model/best.pt",
             "backend/model/best.pt",
             "../model/best.pt",
         ]
 
+        print(f"[YOLO] Searching for model in: {project_root}")
         for candidate in candidates:
             if os.path.exists(candidate):
-                print(f"[YOLO] Found custom model: {candidate}")
-                return YOLO(candidate)
+                abs_path = os.path.abspath(candidate)
+                print(f"[YOLO] ✅ Found custom model: {candidate}")
+                print(f"[YOLO] Absolute path: {abs_path}")
+                try:
+                    return YOLO(candidate)
+                except Exception as e:
+                    print(f"[YOLO] Failed to load {candidate}: {e}")
+                    continue
 
         # Fallback to default
-        print("[YOLO] Using default model: yolov8n")
+        print("[YOLO] ⚠️ Using default model: yolov8n (not optimized for plates)")
         return YOLO("yolov8n")
 
     def detect_plates(self, image: np.ndarray) -> List[PlateDetection]:
