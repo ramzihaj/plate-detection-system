@@ -123,30 +123,42 @@ class YOLOPlateDetector:
 
         try:
             # YOLO inference
+            print(f"[DETECTION] ========== Starting Plate Detection ==========")
+            print(f"[DETECTION] Step 1/5: Image input - Shape: {image.shape}, Type: {image.dtype}")
             results = self.model(image, conf=self.confidence_threshold, verbose=False)
 
+            plate_count = sum(len(result.boxes) for result in results)
+            print(f"[DETECTION] Step 2/5: YOLO detection - Found {plate_count} potential plate(s)")
+
+            detection_idx = 0
             for result in results:
                 for box in result.boxes:
+                    detection_idx += 1
                     confidence = float(box.conf[0])
 
                     if confidence < self.confidence_threshold:
+                        print(f"[DETECTION] Plate #{detection_idx}: Confidence {confidence:.2%} below threshold {self.confidence_threshold:.2%}, skipping")
                         continue
 
                     # Extract bounding box
                     x1, y1, x2, y2 = map(int, box.xyxy[0])
                     bbox = (x1, y1, x2, y2)
+                    print(f"[DETECTION] Plate #{detection_idx}: Confidence {confidence:.2%}, BBox: ({x1}, {y1}, {x2}, {y2})")
 
                     # Extract plate region
                     plate_region = image[y1:y2, x1:x2]
+                    print(f"[DETECTION]   ├─ Step 3/5: Plate ROI extracted - Size: {plate_region.shape}")
 
                     # Extract text from plate
                     raw_text = self._extract_text_from_plate(plate_region)
+                    print(f"[DETECTION]   ├─ Step 4/5: OCR Complete - Extracted text: '{raw_text}'")
 
                     # Validate and format Tunisian format
                     is_valid, formatted_text = self.validator.validate_and_format(raw_text)
-
-                    # Log the extraction for debugging
-                    print(f"[PlateDetection] Raw OCR: '{raw_text}' -> Formatted: '{formatted_text}' (Valid: {is_valid})")
+                    print(f"[DETECTION]   └─ Step 5/5: Validation & Formatting")
+                    print(f"[DETECTION]      ├─ Raw text:      '{raw_text}'")
+                    print(f"[DETECTION]      ├─ Formatted:     '{formatted_text}'")
+                    print(f"[DETECTION]      └─ Valid format:  {is_valid}")
 
                     # Always use the formatted text (whether valid or not)
                     # The validator will clean and attempt to fix the format
@@ -157,6 +169,8 @@ class YOLOPlateDetector:
                         is_valid_format=is_valid,
                         raw_bbox=box.xyxy[0].cpu().numpy() if hasattr(box.xyxy[0], 'cpu') else box.xyxy[0]
                     ))
+
+            print(f"[DETECTION] ========== Detection Complete: {len(detections)} plate(s) processed ==========\n")
 
         except Exception as e:
             print(f"[YOLO] Detection error: {str(e)}")
@@ -204,17 +218,21 @@ class YOLOPlateDetector:
                         print(f"[OCR] Weak detection: '{text}' ({confidence:.0%})")
 
             if not text_blocks:
+                print(f"[OCR] No text blocks detected")
                 return ""
 
+            print(f"[OCR] Step 1/3: Raw extraction - Detected {len(text_blocks)} blocks: {text_blocks}")
+            
             # Join all detected text blocks
             raw_extracted = "".join(text_blocks)
+            print(f"[OCR] Step 2/3: Joined text - '{raw_extracted}'")
             
             # Apply intelligent digit correction for confused characters
             # This converts O->0, I->1, L->1, Z->2, S->5, B->8, G->6 etc.
             corrected_digits = intelligently_extract_digits(text_blocks)
             corrected_text = "".join(corrected_digits)
             
-            print(f"[OCR] Raw: '{raw_extracted}' -> Corrected: '{corrected_text}' ({len(corrected_digits)} digits)")
+            print(f"[OCR] Step 3/3: Corrected - '{raw_extracted}' → '{corrected_text}' ({len(corrected_digits)} digits)")
             
             return corrected_text
 
@@ -242,23 +260,27 @@ class YOLOPlateDetector:
         if plate_image is None or plate_image.size == 0:
             return plate_image
 
-        # Convert to grayscale
+        # Step 1: Convert to grayscale
         if len(plate_image.shape) == 3:
             gray = cv2.cvtColor(plate_image, cv2.COLOR_BGR2GRAY)
         else:
             gray = plate_image
+        print(f"[PREPROCESS] Step 1/6: Grayscale conversion - Shape: {gray.shape}")
 
-        # Upscale 5x for better digit clarity (increased from 3x)
+        # Step 2: Upscale 5x for better digit clarity (increased from 3x)
         h, w = gray.shape[:2]
         upscaled = cv2.resize(gray, (w * 5, h * 5), interpolation=cv2.INTER_CUBIC)
+        print(f"[PREPROCESS] Step 2/6: Upscaled 5x - New shape: {upscaled.shape}")
 
-        # Denoise to reduce OCR confusion
+        # Step 3: Denoise to reduce OCR confusion
         denoised = cv2.fastNlMeansDenoising(upscaled, h=8, templateWindowSize=7, searchWindowSize=21)
+        print(f"[PREPROCESS] Step 3/6: Denoising (h=8) - Applied")
 
-        # Bilateral filtering to preserve edges
+        # Step 4: Bilateral filtering to preserve edges
         bilateral = cv2.bilateralFilter(denoised, 9, 75, 75)
+        print(f"[PREPROCESS] Step 4/6: Bilateral filtering - Applied")
 
-        # Strong adaptive thresholding for digit clarity
+        # Step 5: Strong adaptive thresholding for digit clarity
         thresh = cv2.adaptiveThreshold(
             bilateral, 255, 
             cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
@@ -266,11 +288,13 @@ class YOLOPlateDetector:
             blockSize=13, 
             C=5
         )
+        print(f"[PREPROCESS] Step 5/6: Adaptive threshold (blockSize=13, C=5) - Applied")
 
-        # Morphological operations to enhance digits
+        # Step 6: Morphological operations to enhance digits
         kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
         # Light closing to fill small holes in digits
         closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+        print(f"[PREPROCESS] Step 6/6: Morphological closing - Applied")
 
         return closed
 

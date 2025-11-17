@@ -367,6 +367,7 @@ class PlateDetectionService:
             
             if not detections:
                 # No plates detected - this is still a valid operation result
+                print(f"[RESULT] ❌ No plates detected")
                 return {
                     "detected_plate": None,
                     "confidence": 0.0,
@@ -414,6 +415,15 @@ class PlateDetectionService:
                 }
                 for d in detections
             ]
+            
+            # Print final result summary
+            status_icon = "✅" if best_detection.is_valid_format else "⚠️"
+            print(f"[RESULT] {status_icon} FINAL RESULT")
+            print(f"[RESULT]   ├─ Plate:     {best_detection.plate_text}")
+            print(f"[RESULT]   ├─ Format:    {'VALID (XXXTNXXXX)' if best_detection.is_valid_format else 'INVALID'}")
+            print(f"[RESULT]   ├─ Confidence: {best_detection.confidence:.2%}")
+            print(f"[RESULT]   ├─ Time:       {time.time() - start_time:.3f}s")
+            print(f"[RESULT]   └─ Detections: {len(all_detections)} plate(s)\n")
             
             return {
                 "detected_plate": best_detection.plate_text,
