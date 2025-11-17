@@ -17,6 +17,7 @@ from typing import List, Optional, Tuple
 from ultralytics import YOLO
 import easyocr
 from ..utils.tunisia_plate_validator import TunisianPlateValidator
+from ..utils.ocr_digit_corrector import intelligently_extract_digits
 
 
 @dataclass
@@ -164,15 +165,16 @@ class YOLOPlateDetector:
 
     def _extract_text_from_plate(self, plate_image: np.ndarray) -> str:
         """
-        Extract text from plate image using OCR.
+        Extract text from plate image using OCR with intelligent digit correction.
         
         Optimized parameters for license plate text extraction.
+        Applies OCR digit confusion correction for better accuracy.
         
         Args:
             plate_image: Cropped plate image
             
         Returns:
-            Extracted text string
+            Extracted text string with corrected digits
         """
         if plate_image is None or plate_image.size == 0:
             return ""
@@ -182,9 +184,6 @@ class YOLOPlateDetector:
 
         try:
             # EasyOCR with optimized parameters for plate detection
-            # - paragraph=False: Better for single-line text
-            # - min_size: Filter out very small noise
-            # - batch_size: Can improve performance on multiple lines
             results = self.reader.readtext(
                 processed,
                 detail=1,
@@ -198,21 +197,26 @@ class YOLOPlateDetector:
             # Collect all text blocks
             text_blocks = []
             for bbox, text, confidence in results:
-                # Keep blocks with at least 15% confidence (very permissive)
-                if confidence > 0.15 and text.strip():
+                # Keep blocks with at least 10% confidence (very permissive)
+                if confidence > 0.10 and text.strip():
                     text_blocks.append(text.strip())
-                    if confidence < 0.5:  # Log weak detections
+                    if confidence < 0.5:
                         print(f"[OCR] Weak detection: '{text}' ({confidence:.0%})")
 
             if not text_blocks:
                 return ""
 
             # Join all detected text blocks
-            extracted = "".join(text_blocks)
+            raw_extracted = "".join(text_blocks)
             
-            print(f"[OCR] Extracted: '{extracted}' ({len(text_blocks)} blocks, raw: {len(results)} detections)")
+            # Apply intelligent digit correction for confused characters
+            # This converts O->0, I->1, L->1, Z->2, S->5, B->8, G->6 etc.
+            corrected_digits = intelligently_extract_digits(text_blocks)
+            corrected_text = "".join(corrected_digits)
             
-            return extracted
+            print(f"[OCR] Raw: '{raw_extracted}' -> Corrected: '{corrected_text}' ({len(corrected_digits)} digits)")
+            
+            return corrected_text
 
         except Exception as e:
             print(f"[OCR] Error: {str(e)}")
