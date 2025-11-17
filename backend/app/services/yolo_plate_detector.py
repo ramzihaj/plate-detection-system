@@ -220,18 +220,20 @@ class YOLOPlateDetector:
 
     def _preprocess_plate(self, plate_image: np.ndarray) -> np.ndarray:
         """
-        Preprocess plate image for better OCR.
+        Preprocess plate image for optimal OCR recognition.
         
-        Simplified preprocessing that preserves image clarity:
+        Enhanced preprocessing specifically tuned for Tunisian plates:
         1. Convert to grayscale
-        2. 3x upscaling for better character clarity
-        3. Subtle contrast enhancement
+        2. 5x upscaling for better character clarity
+        3. Denoising to remove artifacts
+        4. Adaptive thresholding for high contrast
+        5. Morphological operations to enhance digit clarity
         
         Args:
             plate_image: Input plate image
             
         Returns:
-            Preprocessed image
+            Preprocessed image optimized for OCR
         """
         if plate_image is None or plate_image.size == 0:
             return plate_image
@@ -242,15 +244,31 @@ class YOLOPlateDetector:
         else:
             gray = plate_image
 
-        # Upscale 3x for better character clarity
+        # Upscale 5x for better digit clarity (increased from 3x)
         h, w = gray.shape[:2]
-        upscaled = cv2.resize(gray, (w * 3, h * 3), interpolation=cv2.INTER_CUBIC)
+        upscaled = cv2.resize(gray, (w * 5, h * 5), interpolation=cv2.INTER_CUBIC)
 
-        # Subtle contrast enhancement (avoid over-processing)
-        clahe = cv2.createCLAHE(clipLimit=1.5, tileGridSize=(8, 8))
-        enhanced = clahe.apply(upscaled)
+        # Denoise to reduce OCR confusion
+        denoised = cv2.fastNlMeansDenoising(upscaled, h=8, templateWindowSize=7, searchWindowSize=21)
 
-        return enhanced
+        # Bilateral filtering to preserve edges
+        bilateral = cv2.bilateralFilter(denoised, 9, 75, 75)
+
+        # Strong adaptive thresholding for digit clarity
+        thresh = cv2.adaptiveThreshold(
+            bilateral, 255, 
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            blockSize=13, 
+            C=5
+        )
+
+        # Morphological operations to enhance digits
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
+        # Light closing to fill small holes in digits
+        closed = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel, iterations=1)
+
+        return closed
 
     def draw_detections(self, image: np.ndarray, detections: List[PlateDetection]) -> np.ndarray:
         """

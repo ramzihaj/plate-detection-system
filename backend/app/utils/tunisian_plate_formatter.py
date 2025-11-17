@@ -11,13 +11,13 @@ Handles different camera angles:
 def format_tunisian_plate_cam_center(texts):
     """
     Format Tunisian plate from center camera perspective.
-    Format: XXX TN XXXX
+    Format: XXX TN XXXX (7 digits total: 3 + 4)
     
     Args:
         texts: List of extracted text strings
         
     Returns:
-        Formatted plate string or "UNKNOWN" if invalid
+        Formatted plate string (with spaces) or "UNKNOWN" if invalid
     """
     characters = []
     for text in texts:
@@ -28,25 +28,13 @@ def format_tunisian_plate_cam_center(texts):
     digits = [c for c in characters if c.isdigit()]
     print(f"📝 Tous les chiffres (centre): {digits}")
 
-    if len(digits) < 3 or len(digits) > 10:
-        return "UNKNOWN"
-
-    if len(digits) == 3:
-        return f"{digits[0]}{digits[1]} TN {digits[2]}"
-    elif len(digits) == 4:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}"
-    elif len(digits) == 5:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}"
-    elif len(digits) == 6:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}"
-    elif len(digits) == 7:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}{digits[6]}"
-    elif len(digits) == 8:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[4]}{digits[5]}{digits[6]}{digits[7]}"
-    elif len(digits) == 9:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[5]}{digits[6]}{digits[7]}{digits[8]}"
-    elif len(digits) == 10:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[6]}{digits[7]}{digits[8]}{digits[9]}"
+    # Extract exactly 7 digits: first 3 are plate number, last 4 are serial
+    if len(digits) >= 7:
+        # Take first 3 for plate number
+        plate_num = digits[0] + digits[1] + digits[2]
+        # Take last 4 for serial
+        serial = digits[-4] + digits[-3] + digits[-2] + digits[-1]
+        return f"{plate_num} TN {serial}"
     
     return "UNKNOWN"
 
@@ -60,7 +48,7 @@ def format_tunisian_plate_cam_right(texts):
         texts: List of extracted text strings
         
     Returns:
-        Formatted plate string or "UNKNOWN" if invalid
+        Formatted plate string (with spaces) or "UNKNOWN" if invalid
     """
     characters = []
     for text in texts:
@@ -71,25 +59,14 @@ def format_tunisian_plate_cam_right(texts):
     digits = [c for c in characters if c.isdigit()]
     print(f"📝 Tous les chiffres (droite): {digits}")
 
-    if len(digits) < 3 or len(digits) > 10:
-        return "UNKNOWN"
-
-    if len(digits) == 3:
-        return f" TN {digits[0]}{digits[1]}{digits[2]}"
+    # From right side, try to extract 7 digits
+    if len(digits) >= 7:
+        plate_num = digits[0] + digits[1] + digits[2]
+        serial = digits[-4] + digits[-3] + digits[-2] + digits[-1]
+        return f"{plate_num} TN {serial}"
     elif len(digits) == 4:
-        return f"TN {digits[0]}{digits[1]}{digits[2]}{digits[3]}"
-    elif len(digits) == 5:
-        return f"{digits[0]} TN {digits[1]}{digits[2]}{digits[3]}{digits[4]}"
-    elif len(digits) == 6:
-        return f"{digits[0]}{digits[1]} TN {digits[2]}{digits[3]}{digits[4]}{digits[5]}"
-    elif len(digits) == 7:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}{digits[6]}"
-    elif len(digits) == 8:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[4]}{digits[5]}{digits[6]}{digits[7]}"
-    elif len(digits) == 9:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[5]}{digits[6]}{digits[7]}{digits[8]}"
-    elif len(digits) == 10:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[6]}{digits[7]}{digits[8]}{digits[9]}"
+        # Maybe only the TN XXXX part visible
+        return f"TN {digits[0] + digits[1] + digits[2] + digits[3]}"
     
     return "UNKNOWN"
 
@@ -103,7 +80,7 @@ def format_tunisian_plate_cam_left(texts):
         texts: List of extracted text strings
         
     Returns:
-        Formatted plate string or "UNKNOWN" if invalid
+        Formatted plate string (with spaces) or "UNKNOWN" if invalid
     """
     characters = []
     for text in texts:
@@ -114,19 +91,14 @@ def format_tunisian_plate_cam_left(texts):
     digits = [c for c in characters if c.isdigit()]
     print(f"📝 Tous les chiffres (gauche): {digits}")
 
-    if len(digits) < 3 or len(digits) > 7:
-        return "UNKNOWN"
-
-    if len(digits) == 3:
-        return f"{digits[0]}{digits[1]} TN {digits[2]}"
-    elif len(digits) == 4:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}"
-    elif len(digits) == 5:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}"
-    elif len(digits) == 6:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}"
-    elif len(digits) == 7:
-        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}{digits[6]}"
+    # From left side, try to extract 7 digits
+    if len(digits) >= 7:
+        plate_num = digits[0] + digits[1] + digits[2]
+        serial = digits[-4] + digits[-3] + digits[-2] + digits[-1]
+        return f"{plate_num} TN {serial}"
+    elif len(digits) == 3:
+        # Maybe only the XXX TN part visible
+        return f"{digits[0] + digits[1] + digits[2]} TN"
     
     return "UNKNOWN"
 
@@ -140,7 +112,7 @@ def format_tunisian_plate(texts, camera_position="center"):
         camera_position: "center", "right", or "left"
         
     Returns:
-        Formatted plate string
+        Formatted plate string with spaces (XXX TN XXXX)
     """
     if camera_position == "right":
         return format_tunisian_plate_cam_right(texts)
