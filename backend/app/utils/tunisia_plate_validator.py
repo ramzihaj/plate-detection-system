@@ -76,6 +76,30 @@ class TunisianPlateValidator:
         
         return False, cleaned
     
+    def format_with_spaces(self, text: str) -> str:
+        """
+        Format valid Tunisian plate with spaces (XXX TN XXXX).
+        
+        Args:
+            text: Tunisian plate text (with or without spaces)
+            
+        Returns:
+            Formatted text with spaces
+        """
+        # Clean and validate first
+        is_valid, formatted = self.validate_and_format(text)
+        
+        if not is_valid:
+            return formatted
+        
+        # Add spaces for display: XXX TN XXXX
+        # Remove any existing spaces first
+        clean = formatted.replace(" ", "")
+        if len(clean) == 9 and clean[3:5].upper() == "TN":
+            return f"{clean[:3]} TN {clean[5:]}"
+        
+        return formatted
+    
     def _clean_text(self, text: str) -> str:
         """
         Clean OCR text by removing spaces and applying error correction.
