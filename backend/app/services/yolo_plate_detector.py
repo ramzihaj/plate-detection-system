@@ -144,6 +144,9 @@ class YOLOPlateDetector:
                     # Validate and format Tunisian format
                     is_valid, formatted_text = self.validator.validate_and_format(raw_text)
 
+                    # Log the extraction for debugging
+                    print(f"[PlateDetection] Raw OCR: '{raw_text}' -> Formatted: '{formatted_text}' (Valid: {is_valid})")
+
                     # Always use the formatted text (whether valid or not)
                     # The validator will clean and attempt to fix the format
                     detections.append(PlateDetection(

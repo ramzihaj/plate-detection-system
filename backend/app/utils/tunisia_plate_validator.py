@@ -81,6 +81,7 @@ class TunisianPlateValidator:
         Clean OCR text by removing spaces and applying error correction.
         
         Handles both Latin (TN) and Arabic (تن) country markers.
+        Removes other Arabic characters that might be OCR artifacts.
         Protects TN marker during cleaning process.
         
         Args:
@@ -95,6 +96,12 @@ class TunisianPlateValidator:
         # Replace Arabic characters with Latin equivalents
         # ت (ta) -> T, ن (noon) -> N
         text = text.replace(self.ARABIC_TA, 'T').replace(self.ARABIC_NOON, 'N')
+        
+        # Remove other Arabic characters that are OCR artifacts
+        # ك ل م ه ي ر و ة ا ب ج د ف ق ص ش ض ظ ع غ خ
+        arabic_chars = 'كلمهيروةابجدفقصشضظعغخ'
+        for char in arabic_chars:
+            text = text.replace(char, '')
         
         # Protect TN marker with placeholder
         text = text.replace("TN", "__TN__")
@@ -120,6 +127,7 @@ class TunisianPlateValidator:
         - "199TN199" -> "199TN0199"
         - "199TN1990" -> "199TN0199"
         - "199T1N99" -> "199TN0199"
+        - "0355TNN521" -> "355TN0521" (partial recovery)
         
         Args:
             text: Cleaned text
@@ -134,21 +142,36 @@ class TunisianPlateValidator:
         # Find TN marker position
         tn_pos = text.find("TN")
         if tn_pos < 0:
-            return ""
+            # If no TN found, try to find any T and N separately
+            t_pos = text.find("T")
+            n_pos = text.find("N", t_pos + 1) if t_pos >= 0 else -1
+            if t_pos >= 0 and n_pos > t_pos:
+                # Reconstruct with TN marker
+                before_tn = text[:t_pos]
+                after_tn = text[n_pos + 1:]
+                text = before_tn + "TN" + after_tn
+                tn_pos = len(before_tn)
+            else:
+                return ""
         
         # Extract parts: before TN, TN itself, after TN
         before_tn = text[:tn_pos]
         after_tn = text[tn_pos + 2:]
         
         # Extract digits only
-        before_digits = ''.join(c for c in before_tn if c.isdigit())[-3:]  # Last 3 digits
-        after_digits = ''.join(c for c in after_tn if c.isdigit())[:4]      # First 4 digits
+        before_digits = ''.join(c for c in before_tn if c.isdigit())
+        after_digits = ''.join(c for c in after_tn if c.isdigit())
+        
+        # Take last 3 digits from before part (in case of leading artifacts)
+        before_digits = before_digits[-3:] if len(before_digits) >= 3 else before_digits
+        # Take first 4 digits from after part (in case of trailing artifacts)
+        after_digits = after_digits[:4] if len(after_digits) >= 4 else after_digits
         
         # Format with proper padding
         if len(before_digits) == 3 and len(after_digits) == 4:
             return f"{before_digits}TN{after_digits}"
         
-        # Handle incomplete numbers
+        # Handle incomplete numbers - pad with zeros
         if len(before_digits) < 3:
             before_digits = before_digits.zfill(3)
         if len(after_digits) < 4:
