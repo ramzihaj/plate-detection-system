@@ -81,7 +81,7 @@ class TunisianPlateValidator:
         Clean OCR text by removing spaces and applying error correction.
         
         Handles both Latin (TN) and Arabic (تن) country markers.
-        Removes other Arabic characters that might be OCR artifacts.
+        Removes all Arabic characters and converts Arabic numerals.
         Protects TN marker during cleaning process.
         
         Args:
@@ -92,6 +92,15 @@ class TunisianPlateValidator:
         """
         # Remove spaces and special characters
         text = text.upper().replace(" ", "").replace("-", "")
+        
+        # Replace Arabic numerals with Latin equivalents
+        # ٠=0, ١=1, ٢=2, ٣=3, ٤=4, ٥=5, ٦=6, ٧=7, ٨=8, ٩=9
+        arabic_numerals = {
+            '٠': '0', '١': '1', '٢': '2', '٣': '3', '٤': '4',
+            '٥': '5', '٦': '6', '٧': '7', '٨': '8', '٩': '9'
+        }
+        for arabic, latin in arabic_numerals.items():
+            text = text.replace(arabic, latin)
         
         # Replace Arabic characters with Latin equivalents
         # ت (ta) -> T, ن (noon) -> N
