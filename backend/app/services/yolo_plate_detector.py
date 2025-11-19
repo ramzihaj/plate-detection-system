@@ -151,15 +151,18 @@ class YOLOPlateDetector:
 
                     # Extract text from plate
                     raw_text = self._extract_text_from_plate(plate_region)
-                    print(f"[DETECTION]   ├─ Step 4/5: OCR Complete - Extracted text: '{raw_text}'")
+                    print(f"[DETECTION]   ├─ Step 4/5: OCR Complete")
+                    print(f"[DETECTION]   │  └─ Raw extracted text: '{raw_text}'")
 
                     # Validate and format Tunisian format
                     is_valid, formatted_text = self.validator.validate_and_format(raw_text)
                     print(f"[DETECTION]   └─ Step 5/5: Validation & Formatting")
-                    print(f"[DETECTION]      ├─ Raw text:      '{raw_text}'")
-                    print(f"[DETECTION]      ├─ Formatted:     '{formatted_text}'")
-                    print(f"[DETECTION]      ├─ Display:      '{self.validator.format_with_spaces(formatted_text) if is_valid else formatted_text}'")
-                    print(f"[DETECTION]      └─ Valid format:  {is_valid}")
+                    print(f"[DETECTION]      ├─ Stage 1 - Raw OCR:        '{raw_text}'")
+                    print(f"[DETECTION]      ├─ Stage 2 - After clean:    '{self.validator._clean_text(raw_text)}'")
+                    print(f"[DETECTION]      ├─ Stage 3 - After extract:  '{self.validator._extract_tunisian_format(self.validator._clean_text(raw_text))}'")
+                    print(f"[DETECTION]      ├─ Stage 4 - Final format:   '{formatted_text}'")
+                    print(f"[DETECTION]      ├─ Display format:           '{self.validator.format_with_spaces(formatted_text) if is_valid else formatted_text}'")
+                    print(f"[DETECTION]      └─ Valid format:             {is_valid}")
 
                     # Always use the formatted text (whether valid or not)
                     # The validator will clean and attempt to fix the format
@@ -222,14 +225,35 @@ class YOLOPlateDetector:
                 print(f"[OCR]   ├─ Confidence:   {confidence:.1%}")
                 print(f"[OCR]   ├─ BBox:         {bbox}")
                 
-                # Keep blocks with at least 10% confidence (very permissive)
-                if confidence > 0.10 and text.strip():
+                # Check if block is valid
+                reject_reason = None
+                
+                # Check confidence threshold
+                if confidence <= 0.10:
+                    reject_reason = "confidence < 10%"
+                
+                # Check if block has too much Arabic content
+                elif text.strip():
+                    arabic_count = sum(1 for c in text if ord(c) >= 0x0600 and ord(c) <= 0x06FF)
+                    if arabic_count / len(text) > 0.6:
+                        reject_reason = ">60% Arabic characters"
+                
+                # Check for valid content (digits, letters, or TN marker)
+                if not reject_reason and text.strip():
+                    has_valid_content = any(
+                        c.isdigit() or c.isalpha() or c in 'TNtn'
+                        for c in text
+                    )
+                    if not has_valid_content:
+                        reject_reason = "no valid plate characters"
+                
+                if reject_reason:
+                    print(f"[OCR]   └─ Status:       ❌ REJECTED ({reject_reason})")
+                else:
                     text_blocks.append(text.strip())
                     block_num += 1
                     status = "✅ KEPT" if confidence >= 0.5 else "⚠️ WEAK"
                     print(f"[OCR]   └─ Status:       {status} (will be used)")
-                else:
-                    print(f"[OCR]   └─ Status:       ❌ REJECTED (confidence < 10%)")
 
             if not text_blocks:
                 print(f"[OCR] ❌ No valid text blocks after filtering")
@@ -248,22 +272,24 @@ class YOLOPlateDetector:
             
             # Apply intelligent digit correction for confused characters
             # This converts O->0, I->1, L->1, Z->2, S->5, B->8, G->6 etc.
+            # Also handles Arabic numerals and rejects invalid blocks
             corrected_digits = intelligently_extract_digits(text_blocks)
             corrected_text = "".join(corrected_digits)
             
-            print(f"[OCR] Step 3/3: Digit correction")
-            print(f"[OCR]   ├─ Raw:               '{raw_extracted}'")
-            print(f"[OCR]   ├─ Corrected:        '{corrected_text}'")
-            print(f"[OCR]   ├─ Total digits:     {len(corrected_digits)}")
+            print(f"[OCR] Step 3/3: Digit correction & block filtering")
+            print(f"[OCR]   ├─ Raw input:          {text_blocks}")
+            print(f"[OCR]   ├─ After correction:  '{corrected_text}'")
+            print(f"[OCR]   ├─ Total valid chars: {len(corrected_digits)}")
             
             # Show character-by-character correction if different
-            if raw_extracted != corrected_text:
+            if "".join(text_blocks) != corrected_text:
+                original_joined = "".join(text_blocks)
                 corrections = []
-                for i, (orig, corr) in enumerate(zip(raw_extracted, corrected_text)):
+                for i, (orig, corr) in enumerate(zip(original_joined, corrected_text)):
                     if orig != corr:
                         corrections.append(f"{orig}→{corr}")
                 if corrections:
-                    print(f"[OCR]   └─ Corrections:      {', '.join(corrections)}")
+                    print(f"[OCR]   └─ Corrections:       {', '.join(set(corrections))}")
             print(f"[OCR] ==========================================\n")
             
             return corrected_text
