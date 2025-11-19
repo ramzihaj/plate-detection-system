@@ -76,18 +76,124 @@ def correct_ocr_digit(char):
 def intelligently_extract_digits(texts):
     """
     Extract and correct digits from OCR texts.
+    Returns only alphanumeric characters (digits and letters).
     
     Args:
         texts: List of text strings from OCR
         
     Returns:
-        List of corrected digits/letters
+        List of corrected alphanumeric characters
     """
-    result = []
+    characters = []
     
+    # First pass: correct all characters
     for text in texts:
         for char in text:
             corrected = correct_ocr_digit(char)
-            result.append(corrected)
+            # Keep alphanumeric characters only
+            if corrected.isalnum():
+                characters.append(corrected)
     
-    return result
+    return characters
+
+def format_tunisian_plate_cam_center(characters):
+    """
+    Format Tunisian plate from detected characters (camera center view).
+    Extracts 3 digits + TN + 4 digits from variable length input.
+    
+    Args:
+        characters: List of alphanumeric characters from OCR
+        
+    Returns:
+        Formatted plate string or "UNKNOWN" if invalid
+    """
+    # Extract only digits from characters
+    digits = [c for c in characters if c.isdigit()]
+    
+    print(f"📝 All digits detected: {digits} (total: {len(digits)})")
+    
+    if len(digits) < 3 or len(digits) > 10:
+        print(f"❌ Invalid digit count: {len(digits)}")
+        return "UNKNOWN"
+    
+    # Format based on digit count
+    if len(digits) == 3:
+        return f"{digits[0]}{digits[1]} TN {digits[2]}"
+    elif len(digits) == 4:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}"
+    elif len(digits) == 5:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}"
+    elif len(digits) == 6:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}"
+    elif len(digits) == 7:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}{digits[6]}"
+    elif len(digits) == 8:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[4]}{digits[5]}{digits[6]}{digits[7]}"
+    elif len(digits) == 9:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[5]}{digits[6]}{digits[7]}{digits[8]}"
+    elif len(digits) == 10:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[6]}{digits[7]}{digits[8]}{digits[9]}"
+
+def format_tunisian_plate_cam_right(characters):
+    """
+    Format Tunisian plate from detected characters (camera right view).
+    
+    Args:
+        characters: List of alphanumeric characters from OCR
+        
+    Returns:
+        Formatted plate string or "UNKNOWN" if invalid
+    """
+    digits = [c for c in characters if c.isdigit()]
+    
+    print(f"📝 All digits detected: {digits} (total: {len(digits)})")
+    
+    if len(digits) < 3 or len(digits) > 10:
+        print(f"❌ Invalid digit count: {len(digits)}")
+        return "UNKNOWN"
+    
+    if len(digits) == 3:
+        return f" TN {digits[0]}{digits[1]}{digits[2]}"
+    elif len(digits) == 4:
+        return f"TN {digits[0]}{digits[1]}{digits[2]}{digits[3]}"
+    elif len(digits) == 5:
+        return f"{digits[0]} TN {digits[1]}{digits[2]}{digits[3]}{digits[4]}"
+    elif len(digits) == 6:
+        return f"{digits[0]}{digits[1]} TN {digits[2]}{digits[3]}{digits[4]}{digits[5]}"
+    elif len(digits) == 7:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}{digits[6]}"
+    elif len(digits) == 8:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[4]}{digits[5]}{digits[6]}{digits[7]}"
+    elif len(digits) == 9:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[5]}{digits[6]}{digits[7]}{digits[8]}"
+    elif len(digits) == 10:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[6]}{digits[7]}{digits[8]}{digits[9]}"
+
+def format_tunisian_plate_cam_left(characters):
+    """
+    Format Tunisian plate from detected characters (camera left view).
+    
+    Args:
+        characters: List of alphanumeric characters from OCR
+        
+    Returns:
+        Formatted plate string or "UNKNOWN" if invalid
+    """
+    digits = [c for c in characters if c.isdigit()]
+    
+    print(f"📝 All digits detected: {digits} (total: {len(digits)})")
+    
+    if len(digits) < 3 or len(digits) > 7:
+        print(f"❌ Invalid digit count: {len(digits)}")
+        return "UNKNOWN"
+    
+    if len(digits) == 3:
+        return f"{digits[0]}{digits[1]} TN {digits[2]}"
+    elif len(digits) == 4:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}"
+    elif len(digits) == 5:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}"
+    elif len(digits) == 6:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}"
+    elif len(digits) == 7:
+        return f"{digits[0]}{digits[1]}{digits[2]} TN {digits[3]}{digits[4]}{digits[5]}{digits[6]}"

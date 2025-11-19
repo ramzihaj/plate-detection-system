@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 from ultralytics import YOLO
 import easyocr
 from ..utils.tunisia_plate_validator import TunisianPlateValidator
-from ..utils.ocr_digit_corrector import intelligently_extract_digits
+from ..utils.ocr_digit_corrector import intelligently_extract_digits, format_tunisian_plate_cam_center
 
 
 @dataclass
@@ -239,13 +239,15 @@ class YOLOPlateDetector:
             print(f"[OCR] Blocks kept: {len(text_blocks)}")
             print(f"[OCR] Blocks list: {text_blocks}\n")
             
-            # Apply character correction
-            corrected_chars = intelligently_extract_digits(text_blocks)
-            corrected_text = "".join(corrected_chars)
+            # Apply character correction to get alphanumeric characters
+            characters = intelligently_extract_digits(text_blocks)
+            print(f"[OCR] Corrected characters: {characters}")
             
-            print(f"[OCR] Corrected text: '{corrected_text}'\n")
+            # Format plate using camera center view algorithm
+            formatted_plate = format_tunisian_plate_cam_center(characters)
+            print(f"[OCR] Formatted plate: '{formatted_plate}'\n")
             
-            return corrected_text
+            return formatted_plate
 
         except Exception as e:
             print(f"[OCR] Error: {str(e)}")
