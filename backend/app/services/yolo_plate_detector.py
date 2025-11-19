@@ -216,81 +216,34 @@ class YOLOPlateDetector:
             print(f"[OCR] ========== TEXT EXTRACTION DETAILS ==========")
             print(f"[OCR] Total blocks detected by EasyOCR: {len(results)}")
             
-            # Collect all text blocks with detailed logging
+            # Collect all text blocks
             text_blocks = []
-            block_num = 0
             for idx, (bbox, text, confidence) in enumerate(results, 1):
                 print(f"[OCR] Block #{idx}:")
                 print(f"[OCR]   ├─ Raw text:     '{text}'")
                 print(f"[OCR]   ├─ Confidence:   {confidence:.1%}")
                 print(f"[OCR]   ├─ BBox:         {bbox}")
                 
-                # Check if block is valid
-                reject_reason = None
-                
-                # Check confidence threshold
-                if confidence <= 0.10:
-                    reject_reason = "confidence < 10%"
-                
-                # Check if block has too much Arabic content
-                elif text.strip():
-                    arabic_count = sum(1 for c in text if ord(c) >= 0x0600 and ord(c) <= 0x06FF)
-                    if arabic_count / len(text) > 0.6:
-                        reject_reason = ">60% Arabic characters"
-                
-                # Check for valid content (digits, letters, or TN marker)
-                if not reject_reason and text.strip():
-                    has_valid_content = any(
-                        c.isdigit() or c.isalpha() or c in 'TNtn'
-                        for c in text
-                    )
-                    if not has_valid_content:
-                        reject_reason = "no valid plate characters"
-                
-                if reject_reason:
-                    print(f"[OCR]   └─ Status:       ❌ REJECTED ({reject_reason})")
-                else:
+                if confidence > 0.10 and text.strip():
                     text_blocks.append(text.strip())
-                    block_num += 1
                     status = "✅ KEPT" if confidence >= 0.5 else "⚠️ WEAK"
-                    print(f"[OCR]   └─ Status:       {status} (will be used)")
+                    print(f"[OCR]   └─ Status:       {status}")
+                else:
+                    print(f"[OCR]   └─ Status:       ❌ REJECTED")
 
             if not text_blocks:
-                print(f"[OCR] ❌ No valid text blocks after filtering")
                 print(f"[OCR] ==========================================\n")
                 return ""
 
             print(f"[OCR] ==========================================")
-            print(f"[OCR] Step 1/3: Raw extraction")
-            print(f"[OCR]   ├─ Total blocks kept:  {len(text_blocks)}")
-            print(f"[OCR]   └─ Blocks list:       {text_blocks}")
+            print(f"[OCR] Blocks kept: {len(text_blocks)}")
+            print(f"[OCR] Blocks list: {text_blocks}\n")
             
-            # Join all detected text blocks
-            raw_extracted = "".join(text_blocks)
-            print(f"[OCR] Step 2/3: Joined text")
-            print(f"[OCR]   └─ Concatenated:      '{raw_extracted}'")
+            # Apply character correction
+            corrected_chars = intelligently_extract_digits(text_blocks)
+            corrected_text = "".join(corrected_chars)
             
-            # Apply intelligent digit correction for confused characters
-            # This converts O->0, I->1, L->1, Z->2, S->5, B->8, G->6 etc.
-            # Also handles Arabic numerals and rejects invalid blocks
-            corrected_digits = intelligently_extract_digits(text_blocks)
-            corrected_text = "".join(corrected_digits)
-            
-            print(f"[OCR] Step 3/3: Digit correction & block filtering")
-            print(f"[OCR]   ├─ Raw input:          {text_blocks}")
-            print(f"[OCR]   ├─ After correction:  '{corrected_text}'")
-            print(f"[OCR]   ├─ Total valid chars: {len(corrected_digits)}")
-            
-            # Show character-by-character correction if different
-            if "".join(text_blocks) != corrected_text:
-                original_joined = "".join(text_blocks)
-                corrections = []
-                for i, (orig, corr) in enumerate(zip(original_joined, corrected_text)):
-                    if orig != corr:
-                        corrections.append(f"{orig}→{corr}")
-                if corrections:
-                    print(f"[OCR]   └─ Corrections:       {', '.join(set(corrections))}")
-            print(f"[OCR] ==========================================\n")
+            print(f"[OCR] Corrected text: '{corrected_text}'\n")
             
             return corrected_text
 
