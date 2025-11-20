@@ -15,6 +15,18 @@ except (ImportError, ModuleNotFoundError):
     YOLO_AVAILABLE = False
     PlateDetection = None
 
+# Import plate formatting functions
+try:
+    from app.utils.ocr_digit_corrector import (
+        format_tunisian_plate_cam_center,
+        format_tunisian_plate_cam_right,
+        format_tunisian_plate_cam_left
+    )
+    FORMATTING_AVAILABLE = True
+except (ImportError, ModuleNotFoundError):
+    FORMATTING_AVAILABLE = False
+    print("[PlateDetectionService] Warning: Plate formatting functions not available")
+
 @dataclass
 class DetectionResult:
     """Result from a single detection strategy"""
@@ -300,6 +312,32 @@ class PlateDetectionService:
         except Exception as e:
             print(f"OCR Error: {e}")
             return None, 0.0
+    
+    def format_detected_plate(self, characters: List[str], view: str = "center") -> str:
+        """
+        Format detected plate using Tunisian plate formatting algorithm.
+        
+        Args:
+            characters: List of corrected alphanumeric characters from OCR
+            view: Camera view type - "center", "right", or "left"
+            
+        Returns:
+            Formatted plate string or "UNKNOWN" if invalid
+        """
+        if not FORMATTING_AVAILABLE:
+            print("[PlateDetectionService] Warning: Formatting not available, returning raw text")
+            return "".join(characters)
+        
+        try:
+            if view == "right":
+                return format_tunisian_plate_cam_right(characters)
+            elif view == "left":
+                return format_tunisian_plate_cam_left(characters)
+            else:  # Default to center
+                return format_tunisian_plate_cam_center(characters)
+        except Exception as e:
+            print(f"[PlateDetectionService] Formatting error: {e}")
+            return "".join(characters)
     
     def detect_plate(self, image_path: str) -> Dict:
         """
